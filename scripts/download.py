@@ -66,10 +66,19 @@ def probe(source):
                     "rate_bytes_sec":0,"probe_seconds":round(time.monotonic()-start,2),
                     "error":str(exc)[:300]}
 
+def written_bytes(pid, output):
+    """Track actual process writes, not sparse file size/high-offset range writes."""
+    try:
+        for line in Path(f"/proc/{pid}/io").read_text().splitlines():
+            if line.startswith("write_bytes:"):
+                return int(line.partition(":")[2].strip())
+    except OSError:
+        pass
+    return output.stat().st_size if output.exists() else 0
+
 def download_one(source, output):
     url_string = url(source["host"])
     output.parent.mkdir(parents=True, exist_ok=True)
-    # No file preallocation: avoids wasting I/O and storage for large archives.
     args = [
         "aria2c", "--enable-color=false", "--file-allocation=none",
         "--allow-overwrite=true", "--auto-file-renaming=false",
@@ -84,17 +93,17 @@ def download_one(source, output):
     proc = subprocess.Popen(args)
     try:
         started = time.monotonic()
-        last_size = 0
+        last_bytes = 0
         last_progress = started
         while proc.poll() is None:
             time.sleep(10)
-            size = output.stat().st_size if output.exists() else 0
+            written = written_bytes(proc.pid, output)
             now = time.monotonic()
-            if size > last_size:
-                last_size = size
+            if written > last_bytes:
+                last_bytes = written
                 last_progress = now
             if now - last_progress > 90:
-                print("Download stalled for 90s: switching CDN.",flush=True)
+                print("No disk writes in 90s: switching CDN.",flush=True)
                 proc.terminate()
                 try:proc.wait(timeout=8)
                 except subprocess.TimeoutExpired:proc.kill();proc.wait()
