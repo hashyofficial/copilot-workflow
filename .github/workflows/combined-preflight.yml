@@ -1,0 +1,35 @@
+name: Redmi Pad combined preflight
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+
+jobs:
+  one-pass-preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Early validation - tools, scripts, protected targets, free space
+        run: |
+          python3 -m py_compile scripts/inventory.py scripts/download.py scripts/vbmeta_audit.py scripts/combined_preflight.py
+          python3 -m unittest discover -s tests -p 'test_*.py' -v
+          python3 -c "import sys; sys.path.insert(0, 'scripts'); from combined_preflight import permitted, find_aapt; print('Selected:', len(permitted()), 'AAPT:', find_aapt())"
+          df -h /tmp
+      - name: Install pinned tools once
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq aria2 curl ca-certificates erofs-utils e2fsprogs attr util-linux file python3
+          python3 scripts/inventory.py --install-tools
+      - name: Download once and inspect flash scripts, vbmeta, super, all APK manifests, config dependencies and EROFS metadata
+        run: sudo --preserve-env=GITHUB_WORKSPACE,ANDROID_HOME python3 scripts/combined_preflight.py
+      - name: Upload read-only consolidated reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: yunluo-miui14-combined-preflight
+          path: |
+            reports-preflight/
+            reports/tools.txt
+          retention-days: 30
+          if-no-files-found: warn
