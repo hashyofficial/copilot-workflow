@@ -1,0 +1,125 @@
+name: Repack Build 4 into complete Xiaomi fastboot firmware ZIP
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/repack-build4-complete-firmware.yml
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  repack-fastboot-stock:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      BUILD_RUN: "39946438276"
+      BUILD_ARTIFACT: yunluo-build4-experimental-fresh-stock-107-folders-super
+      PACKAGE: yunluo_MIUI14_Global_Build4_107Folders_AVBDisabled_Fastboot.zip
+      RELEASE_TAG: yunluo-miui14-build4-complete-firmware
+      FIRMWARE: yunluo_global_images_V14.0.4.0.TLYMIXM_20231207.0000.00_13.0_global_4003dcb1a4.tgz
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate repacker and flashing source checks
+        run: |
+          python3 -m py_compile scripts/repack_build4_fastboot.py scripts/vbmeta_audit.py
+          python3 -m unittest discover -s tests -p 'test_*.py' -v
+          df -h /tmp
+      - name: Install fast multipart download tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq aria2 curl ca-certificates python3 unzip
+      - name: Download existing validated Build 4 artifact; do not rebuild any partition
+        run: |
+          mkdir -p "$RUNNER_TEMP/build4-parts"
+          gh run download "$BUILD_RUN" -R "$GH_REPO" -n "$BUILD_ARTIFACT" -D "$RUNNER_TEMP/build4-parts"
+          ls -lah "$RUNNER_TEMP/build4-parts"
+      - name: Download complete pristine Xiaomi ROM again
+        run: |
+          python3 scripts/download.py \
+            --output "$RUNNER_TEMP/$FIRMWARE" \
+            --report "$RUNNER_TEMP/stock-download-sources.json"
+      - name: Repack full stock firmware with ONLY two replaced image files and corrected CRC lists
+        run: |
+          mkdir -p "$RUNNER_TEMP/output" "$RUNNER_TEMP/reports"
+          python3 scripts/repack_build4_fastboot.py \
+            --archive "$RUNNER_TEMP/$FIRMWARE" \
+            --artifact "$RUNNER_TEMP/build4-parts" \
+            --zip "$RUNNER_TEMP/output/$PACKAGE" \
+            --report "$RUNNER_TEMP/reports"
+      - name: Split ZIP into individually resumable downloads and verify each part
+        run: |
+          cd "$RUNNER_TEMP/output"
+          split -b 768M -d -a 3 "$PACKAGE" "$PACKAGE.part-"
+          sha256sum "$PACKAGE" > ZIP_SHA256.txt
+          sha256sum "$PACKAGE".part-* > PARTS_SHA256.txt
+          python3 - <<'PY'
+          import glob,hashlib,json,os,pathlib
+          root=pathlib.Path(os.environ["RUNNER_TEMP"])/"output"
+          zipname=os.environ["PACKAGE"]
+          full=root/zipname
+          partfiles=sorted(root.glob(zipname+".part-*"))
+          if len(partfiles)<2:raise SystemExit("ZIP split failed")
+          h=hashlib.sha256();size=0;parts=[]
+          for p in partfiles:
+              ph=hashlib.sha256()
+              with p.open("rb") as f:
+                  for b in iter(lambda:f.read(8*1024*1024),b""):
+                      h.update(b);ph.update(b);size+=len(b)
+              parts.append({"file":p.name,"bytes":p.stat().st_size,"sha256":ph.hexdigest()})
+          o=json.loads((pathlib.Path(os.environ["RUNNER_TEMP"])/"reports"/"VERIFICATION.json").read_text())
+          if size!=full.stat().st_size or h.hexdigest()!=o["firmware_zip_sha256"]:
+              raise SystemExit("Part reassembly SHA256 did not match full ZIP")
+          (root/"DOWNLOAD_MANIFEST.json").write_text(json.dumps({
+              "zip_name":zipname,"zip_bytes":size,"zip_sha256":h.hexdigest(),
+              "parts":parts,"source":o["original_rom_md5"],"vbmeta_flags":3
+          },indent=2)+"\n")
+          print(f"Verified {len(parts)} parts: {size} bytes, SHA256 {h.hexdigest()}",flush=True)
+          PY
+          rm "$PACKAGE"
+      - name: Publish the complete firmware ZIP in 768MiB GitHub Release chunks
+        run: |
+          cd "$RUNNER_TEMP/output"
+          cat > "$RUNNER_TEMP/release-notes.txt" <<'EOF'
+          REDMI PAD (yunluo) — EXPERIMENTAL FULL FASTBOOT FIRMWARE
+          Original MIUI 14 Global V14.0.4.0.TLYMIXM with Build 4's verified
+          107-folder debloated super.img and a top-level vbmeta.img with AVB
+          verification + hashtree flags disabled (AVB0 flags = 3).
+          Only images/super.img and images/vbmeta.img image contents are modified.
+          Only images/crclist.txt and images/sparsecrclist.txt checksum text entries
+          are updated to reflect the two changed images.
+          Other firmware images, including vbmeta_system and vbmeta_vendor, remain original.
+          Original fastboot flashing scripts, scatter/XML, device version and antirollback files unchanged.
+          
+          DOWNLOAD EVERY numbered ZIP part, DOWNLOAD_MANIFEST.json and ZIP_SHA256.txt.
+          On Linux:
+              cat yunluo_MIUI14_Global_Build4_107Folders_AVBDisabled_Fastboot.zip.part-* > yunluo_MIUI14_Global_Build4_107Folders_AVBDisabled_Fastboot.zip
+              sha256sum -c ZIP_SHA256.txt
+          Unzip, review the flash_all.sh script and verify the correct device.
+          WARNING: Unlocked bootloader required. Never run flash_all_lock.sh/bat.
+          flash_all.sh erases and reflashes userdata, and erases metadata/boot_ab/expdb.
+          The original AVB cryptographic signature is invalidated by flag edit.
+          Build 4 super booted for the user; combined firmware package is NOT device flash-tested.
+          EOF
+          gh release create "$RELEASE_TAG" \
+            "$PACKAGE".part-* DOWNLOAD_MANIFEST.json ZIP_SHA256.txt PARTS_SHA256.txt \
+            -R "$GH_REPO" --target "$GITHUB_SHA" \
+            --title "Redmi Pad yunluo — Build 4 full fastboot ROM (AVB disabled; 107 folders)" \
+            --notes-file "$RUNNER_TEMP/release-notes.txt" \
+            --latest=false --prerelease
+      - name: Upload metadata audit separately
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: yunluo-build4-full-firmware-repack-report
+          path: ${{ runner.temp }}/reports/
+          retention-days: 30
+          if-no-files-found: warn
+      - name: Verify release URL and asset list
+        if: success()
+        run: gh release view "$RELEASE_TAG" -R "$GH_REPO" --json url,assets --jq '{url: .url, assets: [.assets[] | {name: .name, size: .size}]}'
