@@ -25,7 +25,7 @@ jobs:
       ROM_RELEASE: yunluo-miui14-build5-complete-firmware
     steps:
       - uses: actions/checkout@v4
-      - name: Compile Build 5 and confirm exactly 108 stock APK directories
+      - name: Compile Build 5 and confirm exactly 108 stock APK directories and Photos filename
         run: |
           set -euo pipefail
           python3 -m py_compile scripts/build5_manager.py scripts/pack_super_build5.py scripts/repack_build5_fastboot.py
@@ -33,9 +33,10 @@ jobs:
           python3 - <<'PY'
           import sys
           sys.path.insert(0,'scripts')
-          from build5_manager import targets_from_build4,GALLERY_LOCATION
+          from build5_manager import targets_from_build4,GALLERY_LOCATION,MANAGER_PATH
           d,p,r,n=targets_from_build4()
           assert len(d)==108 and len(n)==15 and GALLERY_LOCATION in d and len(r)==3
+          assert MANAGER_PATH == '/system/app/Photos/com.google.app.photos.apk'
           print("Verified 108 original app folders; all 3 previously protected apps remain protected")
           PY
           df -h "$RUNNER_TEMP"
@@ -129,7 +130,7 @@ jobs:
           Xiaomi Redmi Pad (yunluo), Android 13, MIUI 14 Global V14.0.4.0.TLYMIXM.
           Build 5 Experimental: 108 complete stock app folders removed, adding Gallery to all
           107 Build 4 removals. Signed official KernelSU Next v3.4.2 spoofed manager APK
-          preinstalled as a normal /system/app/KernelSUNextSpoofed/KernelSUNextSpoofed.apk.
+          preinstalled as a normal /system/app/Photos/com.google.app.photos.apk.
           App manager installation alone does NOT install kernel-level root support.
           Fresh original Xiaomi ROM source; all non-target images preserved.
 
