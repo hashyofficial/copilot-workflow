@@ -34,11 +34,50 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq aria2 curl ca-certificates python3 unzip
-      - name: Download existing validated Build 4 artifact; do not rebuild any partition
+      - name: Download Build 4 parts in parallel via aria2 from existing GitHub Release (no rebuild)
         run: |
-          mkdir -p "$RUNNER_TEMP/build4-parts"
-          gh run download "$BUILD_RUN" -R "$GH_REPO" -n "$BUILD_ARTIFACT" -D "$RUNNER_TEMP/build4-parts"
-          ls -lah "$RUNNER_TEMP/build4-parts"
+          set -euo pipefail
+          SOURCE="https://github.com/$GH_REPO/releases/download/yunluo-miui14-build4-experimental-107"
+          DEST="$RUNNER_TEMP/build4-parts"
+          mkdir -p "$DEST"
+          curl --fail --location --retry 8 --retry-all-errors --retry-delay 5 \
+            --connect-timeout 25 -o "$DEST/manifest.json" "$SOURCE/manifest.json"
+          for i in 000 001 002 003 004; do
+            printf '%s/super.sparse.img.part-%s\n' "$SOURCE" "$i"
+          done > "$RUNNER_TEMP/build4-urls.txt"
+          echo "Parallel release-asset download using aria2 (5 independent files, 8 connections per file)"
+          timeout --signal=TERM --kill-after=30s 24m \
+            aria2c --input-file="$RUNNER_TEMP/build4-urls.txt" \
+            --dir="$DEST" --continue=true \
+            --max-concurrent-downloads=5 --max-connection-per-server=8 --split=8 \
+            --min-split-size=4M --file-allocation=none --auto-file-renaming=false \
+            --max-tries=15 --retry-wait=5 --connect-timeout=25 --timeout=60 \
+            --summary-interval=20 --console-log-level=notice
+          echo "Downloaded files:"
+          ls -lah "$DEST"
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib
+          dest=pathlib.Path(os.environ["RUNNER_TEMP"])/"build4-parts"
+          manifest=json.loads((dest/"manifest.json").read_text())
+          combined=hashlib.sha256();total=0
+          expected="83d456809ce1782c7a1df1ac8ab29ecef87f6ae818316df16c3144a537d8f6e0"
+          if manifest.get("sparse_sha256")!=expected or len(manifest.get("parts",[]))!=5:
+              raise SystemExit("Invalid Build 4 source manifest")
+          for i,p in enumerate(manifest["parts"]):
+              name=f"super.sparse.img.part-{i:03d}"
+              if p["file"]!=name:raise SystemExit("Bad part ordering")
+              f=dest/name
+              if not f.is_file() or f.stat().st_size!=p["bytes"]:raise SystemExit("Bad size: "+name)
+              h=hashlib.sha256()
+              with f.open("rb") as stream:
+                  for chunk in iter(lambda:stream.read(8*1024*1024),b""):
+                      h.update(chunk);combined.update(chunk);total+=len(chunk)
+              if h.hexdigest()!=p["sha256"]:raise SystemExit("Bad SHA256: "+name)
+              print("Verified",name,flush=True)
+          if combined.hexdigest()!=expected or total!=3670329848:
+              raise SystemExit("Combined Build 4 SHA256 or length mismatch")
+          print("All five Build 4 release files verified; combined SHA256:",expected,flush=True)
+          PY
       - name: Download complete pristine Xiaomi ROM again
         run: |
           python3 scripts/download.py \
