@@ -36,15 +36,46 @@ jobs:
       - name: Publish V 1.0 Final stable release and the downloader, without multipart firmware attachments
         run: |
           set -euo pipefail
-          gh release create v1.0 \
-            scripts/download-v1.0-full-firmware.sh \
-            docs/RELEASE_V1.0_FINAL.md \
-            -R "$GH_REPO" --target "$GITHUB_SHA" \
-            --title "Release V 1.0 Final — Final Fastboot Image" \
-            --notes-file docs/RELEASE_V1.0_FINAL.md \
-            --latest
+          if gh release view v1.0 -R "$GH_REPO" >/dev/null 2>&1; then
+            echo "Release v1.0 is already published with the complete ZIP in GHCR; retaining the existing verified release."
+          else
+            gh release create v1.0 \
+              scripts/download-v1.0-full-firmware.sh \
+              docs/RELEASE_V1.0_FINAL.md \
+              -R "$GH_REPO" --target "$GITHUB_SHA" \
+              --title "Release V 1.0 Final — Final Fastboot Image" \
+              --notes-file docs/RELEASE_V1.0_FINAL.md \
+              --latest
+          fi
           gh release view v1.0 -R "$GH_REPO" --json name,isPrerelease,isDraft,url,assets \
             -q '{title:.name,prerelease:.isPrerelease,draft:.isDraft,url:.url,assets:[.assets[]|{name:.name,size:.size}]}'
+      - name: Check anonymous visibility of the ONE complete firmware ZIP in GHCR
+        run: |
+          set -euo pipefail
+          PACKAGE="hashyofficial/redmi-pad-yunluo-miui-project-firmware"
+          REGISTRY="https://ghcr.io/v2/$PACKAGE/manifests/v1.0"
+          TOKEN_URL="https://ghcr.io/token?service=ghcr.io&scope=repository:$PACKAGE:pull"
+          if ! curl -fsSL --retry 4 "$TOKEN_URL" > "$RUNNER_TEMP/ghcr-token.json"; then
+            echo "::warning::GHCR anonymous-token endpoint unavailable; package must be checked in GitHub Packages."
+            exit 0
+          fi
+          token="$(jq -r '.token // .access_token // empty' "$RUNNER_TEMP/ghcr-token.json")"
+          if [ -z "$token" ]; then
+            echo "::warning::No anonymous GHCR pull token; package may be private."
+            exit 0
+          fi
+          http="$(curl -sSL -o "$RUNNER_TEMP/ghcr-anonymous-manifest.json" -w '%{http_code}' \
+            -H "Authorization: Bearer $token" \
+            -H "Accept: application/vnd.oci.image.manifest.v1+json,application/vnd.oci.artifact.manifest.v1+json" "$REGISTRY")"
+          if [ "$http" != "200" ]; then
+            echo "::warning::GHCR anonymously returned HTTP $http; change container package visibility to Public under GitHub Packages settings."
+            exit 0
+          fi
+          jq -e --arg digest "sha256:$EXPECTED_SHA" \
+            --argjson size 3697320245 \
+            '[.layers[]?,.blobs[]?] | any(.digest == $digest and .size == $size)' \
+            "$RUNNER_TEMP/ghcr-anonymous-manifest.json"
+          echo "SUCCESS: anonymous GHCR access verified; manifest contains one complete 3.697GB ZIP."
       - name: Attempt repository rename to Redmi-Pad-Yunluo-Miui-Project
         run: |
           set -euo pipefail
