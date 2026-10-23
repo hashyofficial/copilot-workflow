@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build 5: fresh original Xiaomi firmware, 108 whole app folders removed and manager installed.
+"""Build 5: fresh original Xiaomi firmware, 108 complete APK folders removed; no apps added.
 
 Preserve Xiaomi's LP metadata and every non-target partition. Reuse the
 previously validated EROFS exclusion process. No bootloader or flash actions.
@@ -13,7 +13,7 @@ import subprocess
 import tempfile
 
 from inventory import ROOT, NAME, MD5, TOOLS, sha, command, fstype
-from build5_manager import targets_from_build4, stage_apk, verify_apk, verify_installed, is_injected, MANAGER_PATH
+from build5_gallery_targets import targets_from_build4, GALLERY_LOCATION
 from combined_preflight import extract_archive, SUPER_RAW_SIZE, apk_identity
 from erofs_trial import (SOURCE_SUPER_SHA256, proposed, exclusions,
                          check_folders, tree_map, compare_trees,
@@ -227,7 +227,7 @@ def build4_targets():
 
 def build():
     trial,expected_packages,protected,new=targets_from_build4()
-    print("Build 5: fresh original Xiaomi firmware, 108 whole app folders removed + one official system APK",flush=True)
+    print("Build 5: fresh original Xiaomi firmware; 107 prior removals plus Gallery folder; no APK installed",flush=True)
     with tempfile.TemporaryDirectory(prefix="yunluo-build5-fresh-firmware-") as td:
         temp=Path(td)
         external_archive=os.environ.get("BUILD5_STOCK_ARCHIVE")
@@ -254,9 +254,6 @@ def build():
         candidate=temp/"candidate.raw.img"
         subprocess.run(["cp","--reflink=auto","--sparse=always",str(original),str(candidate)],check=True)
         aapt=find_aapt();rows=[]
-        manager_apk=Path(os.environ["BUILD5_MANAGER_APK"])
-        verify_apk(manager_apk,aapt)
-        manager_details=None
         for name,(sector,count) in REGIONS.items():
             print("Build 5: rebuilding "+name+" from original EROFS",flush=True)
             src=unpack(original,name,temp/("orig-"+name))
@@ -265,7 +262,6 @@ def build():
             uuid,_=read_uuid(src)
             mount=temp/("mount-"+name)
             mount_readonly(src,mount)
-            staging=None
             try:
                 excluded=exclusions(name,trial)
                 files=check_folders(mount,name,excluded,aapt)
@@ -295,16 +291,9 @@ def build():
                         if observed!=pkg:
                             raise RuntimeError("Protected original APK identity mismatch: "+location)
                 rebuilt=temp/(name+"-rebuilt.erofs")
-                input_tree=mount
-                if name=="system_a":
-                    staging=temp/"system-with-manager"
-                    manager_details=stage_apk(mount,staging,manager_apk,aapt,before)
-                    input_tree=staging
-                mkfs_report(rebuilt,input_tree,[path for _,path in excluded],uuid)
+                mkfs_report(rebuilt,mount,[path for _,path in excluded],uuid)
                 run_checked("fsck.erofs",rebuilt)
             finally:
-                if staging is not None and subprocess.run(["mountpoint","-q",str(staging)]).returncode==0:
-                    subprocess.run(["umount",str(staging)],check=True)
                 subprocess.run(["umount",str(mount)],check=True)
             replace_region(candidate,sector*512,count*512,rebuilt)
             out=unpack(candidate,name,temp/("check-"+name))
@@ -312,13 +301,7 @@ def build():
             verified_mount=temp/("verified-"+name)
             mount_readonly(out,verified_mount)
             try:
-                rebuilt_tree=tree_map(verified_mount)
-                if name=="system_a":
-                    if not manager_details:raise RuntimeError("Manager was not staged")
-                    verify_installed(verified_mount,manager_details,aapt)
-                    rebuilt_tree={path:info for path,info in rebuilt_tree.items()
-                                  if not is_injected(path)}
-                diff=compare_trees(before,rebuilt_tree,[p for _,p in excluded])
+                diff=compare_trees(before,tree_map(verified_mount),[p for _,p in excluded])
                 if not diff["passed"]:raise RuntimeError("Retained files changed in "+name)
                 for location in protected:
                     if location.startswith(name+":"):
@@ -366,9 +349,9 @@ def build():
                   "build4_additional_directories_removed":14,
                   "build5_additional_directories_removed":1,
                   "total_directories_removed":108,
-                  "kernel_su_next_manager":manager_details,
+                  "additional_apks_installed":0,
                   "build4_new_targets":[{"name":BUILD4_NEW_LABELS[loc],"location":loc} for loc in sorted(new) if loc in BUILD4_NEW_LABELS],
-                  "build5_gallery_target":"product_a:/priv-app/Gallery_T_Global/Gallery_T_Global.apk",
+                  "build5_gallery_target":GALLERY_LOCATION,
                   "cell_broadcast_service_apex_modified":False,
                   "protected_packages":protected,
                   "overlays_removed":0,
@@ -387,7 +370,7 @@ def build():
         text=json.dumps(manifest,indent=2)+"\n"
         report("manifest.json",text)
         (BINARIES/"manifest.json").write_text(text)
-        report("result.txt","Offline Build 5: 108 app folders excluded, KernelSU Next manager installed in system; no standalone super artifact.\n"+
+        report("result.txt","Offline Build 5: 108 whole app folders excluded, including Gallery; no added APK, no standalone super artifact.\n"+
                "A separate installed APK in userdata is not deleted by rebuilding super.img.\n"+
                "No vbmeta image has been modified. Stock AVB is incompatible.\n")
         print("Build 5 verified super assembled privately for complete ROM ZIP; never uploaded separately.",flush=True)
