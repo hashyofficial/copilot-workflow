@@ -1,0 +1,6 @@
+# Build 4 Experimental: extra dedicated APK folders requested before the build.
+# Source: original V14.0.4.0.TLYMIXM Xiaomi firmware APK inventory.
+# Only used after identity verification against a freshly downloaded ROM.
+# App label<TAB>stock partition:/relative/path/to/APK
+Clock	product_a:/app/MIUIDeskClockPadGlobal/MIUIDeskClockPadGlobal.apk
+Mi Video	product_a:/app/MIUIVideoPlayer/MIUIVideoPlayer.apk
