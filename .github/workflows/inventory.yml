@@ -9,15 +9,14 @@ jobs:
     timeout-minutes: 330
     steps:
       - uses: actions/checkout@v4
-      - name: Check script and free temporary disk space
+      - name: Check scripts and available space (no slow cleanup)
         run: |
-          python3 -m py_compile scripts/inventory.py
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android/sdk /opt/hostedtoolcache /usr/local/.ghcup
+          python3 -m py_compile scripts/inventory.py scripts/download.py
           df -h /tmp
       - name: Install image inspection tools
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq curl ca-certificates erofs-utils e2fsprogs attr util-linux file python3
+          sudo apt-get install -y -qq curl aria2 ca-certificates erofs-utils e2fsprogs attr util-linux file python3
           python3 scripts/inventory.py --install-tools
       - name: Download and inspect official MIUI 14 Global fastboot ROM
         run: sudo --preserve-env=GITHUB_WORKSPACE python3 scripts/inventory.py --inspect
