@@ -1,0 +1,100 @@
+name: Publish existing Build 4 image parts as GitHub Release downloads
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/publish-build4-release.yml
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish-existing-image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      BUILD_RUN: '39946438276'
+      ARTIFACT_NAME: yunluo-build4-experimental-fresh-stock-107-folders-super
+      RELEASE_TAG: yunluo-miui14-build4-experimental-107
+      EXPECTED_SHA256: '83d456809ce1782c7a1df1ac8ab29ecef87f6ae818316df16c3144a537d8f6e0'
+      EXPECTED_BYTES: '3670329848'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download verified existing Build 4 artifact without rebuilding firmware
+        run: |
+          mkdir -p "${{ runner.temp }}/yunluo-release"
+          gh run download "$BUILD_RUN" -R "$GH_REPO" -n "$ARTIFACT_NAME" -D "${{ runner.temp }}/yunluo-release"
+      - name: Check all five image parts against GitHub Build 4 manifest and expected combined digest
+        env:
+          SOURCE_DIR: ${{ runner.temp }}/yunluo-release
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          folder=Path(os.environ['SOURCE_DIR'])
+          manifest=json.loads((folder/'manifest.json').read_text())
+          if manifest.get('build')!='4-experimental' or manifest.get('total_directories_removed')!=107:
+              raise SystemExit('Not the correct Build 4 manifest')
+          if manifest.get('sparse_sha256')!=os.environ['EXPECTED_SHA256']:
+              raise SystemExit('Build 4 expected image hash mismatch')
+          if not manifest.get('lp_metadata_preserved') or not manifest.get('other_regions_unchanged'):
+              raise SystemExit('Build 4 image lacks source integrity checks')
+          parts=manifest.get('parts',[])
+          if len(parts)!=5:
+              raise SystemExit('Expected five Build 4 image parts')
+          sha=hashlib.sha256();size=0
+          for index,record in enumerate(parts):
+              expected_name=f'super.sparse.img.part-{index:03d}'
+              if record['file']!=expected_name:
+                  raise SystemExit('Unexpected or unordered part')
+              file=folder/expected_name
+              individual=hashlib.sha256()
+              if not file.is_file() or file.stat().st_size!=record['bytes']:
+                  raise SystemExit('Part missing/size mismatch: '+expected_name)
+              with file.open('rb') as data:
+                  for block in iter(lambda:data.read(8*1024*1024),b''):
+                      individual.update(block);sha.update(block);size+=len(block)
+              if individual.hexdigest()!=record['sha256']:
+                  raise SystemExit('Part SHA256 mismatch: '+expected_name)
+              print('Verified',expected_name,record['bytes'],'bytes')
+          if size!=int(os.environ['EXPECTED_BYTES']) or sha.hexdigest()!=os.environ['EXPECTED_SHA256']:
+              raise SystemExit('Combined image digest or size mismatch')
+          print('COMBINED BUILD 4 VERIFIED:',size,'bytes, SHA256',sha.hexdigest())
+          PY
+      - name: Create GitHub Release with separate image parts and manifest
+        env:
+          SOURCE_DIR: ${{ runner.temp }}/yunluo-release
+        run: |
+          cat > "${{ runner.temp }}/build4-release-notes.txt" <<'EOF'
+          Redmi Pad (yunluo) MIUI 14 Global V14.0.4.0.TLYMIXM — Build 4 Experimental.
+          Fresh original Xiaomi firmware, no reuse of Builds 1–3 modified artifacts.
+          107 entire APK directories removed. Cell Broadcast Service APEX unchanged.
+          Image verified offline but not boot-tested.
+
+          Download ALL five numbered parts and manifest.json.
+          On Linux, from the download folder:
+            cat super.sparse.img.part-* > super.sparse.img
+            sha256sum super.sparse.img
+          Expected SHA256:
+          83d456809ce1782c7a1df1ac8ab29ecef87f6ae818316df16c3144a537d8f6e0
+
+          Do not flash individual parts. Do not relock the bootloader on modified images.
+          This release is an alternate download location for successful Build 4 GitHub Actions run #39946438276.
+          EOF
+          gh release create "$RELEASE_TAG" \
+            "$SOURCE_DIR"/super.sparse.img.part-* "$SOURCE_DIR"/manifest.json \
+            -R "$GH_REPO" \
+            --target "$GITHUB_SHA" \
+            --title "Redmi Pad yunluo — Build 4 Experimental (107 folders)" \
+            --notes-file "${{ runner.temp }}/build4-release-notes.txt" \
+            --latest=false \
+            --prerelease
+      - name: Verify release assets and display public URL
+        run: |
+          gh release view "$RELEASE_TAG" -R "$GH_REPO" --json url,assets \
+            --jq '{url: .url, assets: [.assets[] | {name: .name, size: .size}]}'
