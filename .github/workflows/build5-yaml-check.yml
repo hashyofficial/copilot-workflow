@@ -24,3 +24,9 @@ jobs:
           end
           RB
           python3 -m py_compile scripts/build5_manager.py scripts/pack_super_build5.py scripts/repack_build5_fastboot.py
+      - name: Validate GitHub Actions workflow schema using actionlint
+        run: |
+          set -euo pipefail
+          go version
+          GOBIN="$RUNNER_TEMP" go install github.com/rhysd/actionlint/cmd/actionlint@latest
+          "$RUNNER_TEMP/actionlint" -color -verbose .github/workflows/build5-full-firmware.yml
