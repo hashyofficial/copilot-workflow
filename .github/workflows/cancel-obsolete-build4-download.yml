@@ -1,0 +1,23 @@
+name: Cancel obsolete stalled Build 4 artifact download
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/cancel-obsolete-build4-download.yml
+permissions:
+  contents: read
+  actions: write
+jobs:
+  cancel-old-stalled-run:
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Stop obsolete GH artifact transfer run only
+        run: |
+          gh run cancel 39960564576 -R "$GH_REPO" || {
+            echo "Old run already completed or cancellation unavailable"
+          }
+      - name: Confirm optimized replacement is still active
+        run: gh run view 39962163909 -R "$GH_REPO" --json status,conclusion,url
