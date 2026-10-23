@@ -1,0 +1,27 @@
+# REFERENCE ONLY: 24 lower-uncertainty candidates from 33-item manifest.
+# Nine packages referenced by privileged-permission configurations held for manual review.
+# This list is NOT a flash command, does NOT authorize modification, and is NOT proof of boot safety.
+system_a:/system/app/LocationEM2/LocationEM2.apk
+product_a:/pangu/system/app/FM_MTK/FM_MTK.apk
+product_a:/data-app/MIUINotes/MIUINotes.apk
+product_a:/data-app/MIUIScreenRecorderLiteGlobal/MIUIScreenRecorderLiteGlobal.apk
+product_a:/app/AnalyticsCore/AnalyticsCore.apk
+product_a:/app/MSA-Global/MSA-Global.apk
+product_a:/app/MiuiBugReportGlobal/MiuiBugReportGlobal.apk
+product_a:/app/MiuiCit/MiuiCit.apk
+system_a:/system/app/CatchLog/CatchLog.apk
+system_a:/system/app/DebugLoggerUI/DebugLoggerUI.apk
+product_a:/data-app/GlobalWPSLITE/GlobalWPSLITE.apk
+product_a:/data-app/MIBrowserGlobal_removable/MIBrowserGlobal_removable.apk
+product_a:/app/GoogleLocationHistory/GoogleLocationHistory.apk
+product_a:/app/GoogleOne/GoogleOne.apk
+product_a:/app/Maps/Maps.apk
+product_a:/app/YouTube/YouTube.apk
+product_a:/data-app/Drive/Drive.apk
+product_a:/data-app/GoogleNews/GoogleNews.apk
+product_a:/data-app/Podcasts/Podcasts.apk
+product_a:/data-app/Videos/Videos.apk
+product_a:/data-app/YTMusic/YTMusic.apk
+system_a:/system/app/BasicDreams/BasicDreams.apk
+system_a:/system/app/EasterEgg/EasterEgg.apk
+system_a:/system/app/GooglePrintRecommendationService/GooglePrintRecommendationService.apk
