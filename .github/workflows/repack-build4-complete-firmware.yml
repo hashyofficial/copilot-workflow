@@ -122,4 +122,5 @@ jobs:
           if-no-files-found: warn
       - name: Verify release URL and asset list
         if: success()
-        run: gh release view "$RELEASE_TAG" -R "$GH_REPO" --json url,assets --jq '{url: .url, assets: [.assets[] | {name: .name, size: .size}]}'
+        run: |
+          gh release view "$RELEASE_TAG" -R "$GH_REPO" --json url,assets --jq '{url: .url, assets: [.assets[] | {name: .name, size: .size}]}'
