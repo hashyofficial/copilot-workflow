@@ -1,0 +1,56 @@
+name: Transfer existing super.img candidate to Cloudflare R2
+
+on:
+  workflow_dispatch:
+    inputs:
+      r2_account_id:
+        description: 'Cloudflare Account ID (32 hex characters; not a secret)'
+        required: true
+        type: string
+      r2_bucket:
+        description: 'Existing R2 bucket name'
+        required: true
+        type: string
+      r2_object_key:
+        description: 'Destination object path in R2'
+        required: true
+        default: 'yunluo/V14.0.4.0.TLYMIXM/super.sparse.img'
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  transfer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      AWS_EC2_METADATA_DISABLED: 'true'
+      SOURCE_DIR: ${{ runner.temp }}/yunluo-source
+      R2_ACCOUNT_ID: ${{ inputs.r2_account_id }}
+      R2_BUCKET: ${{ inputs.r2_bucket }}
+      R2_OBJECT_KEY: ${{ inputs.r2_object_key }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify credentials are configured without printing them
+        run: |
+          test -n "$AWS_ACCESS_KEY_ID" || { echo 'Missing Actions secret R2_ACCESS_KEY_ID'; exit 1; }
+          test -n "$AWS_SECRET_ACCESS_KEY" || { echo 'Missing Actions secret R2_SECRET_ACCESS_KEY'; exit 1; }
+          python3 -m py_compile scripts/publish_super_r2.py
+          gh --version
+          aws --version
+          df -h "$RUNNER_TEMP"
+      - name: Download completed 24-app super image artifact (no rebuild)
+        run: |
+          mkdir -p "$SOURCE_DIR"
+          gh run download 39917200399 -R "$GH_REPO" \
+            -n yunluo-miui14-slot-a-super-candidate -D "$SOURCE_DIR"
+          ls -lh "$SOURCE_DIR"/super.sparse.img.part-* "$SOURCE_DIR"/manifest.json
+      - name: Verify SHA-256 and stream multipart upload to Cloudflare R2
+        run: python3 scripts/publish_super_r2.py
