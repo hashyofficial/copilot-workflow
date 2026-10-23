@@ -265,6 +265,7 @@ def build():
             uuid,_=read_uuid(src)
             mount=temp/("mount-"+name)
             mount_readonly(src,mount)
+            staging=None
             try:
                 excluded=exclusions(name,trial)
                 files=check_folders(mount,name,excluded,aapt)
@@ -302,6 +303,8 @@ def build():
                 mkfs_report(rebuilt,input_tree,[path for _,path in excluded],uuid)
                 run_checked("fsck.erofs",rebuilt)
             finally:
+                if staging is not None and subprocess.run(["mountpoint","-q",str(staging)]).returncode==0:
+                    subprocess.run(["umount",str(staging)],check=True)
                 subprocess.run(["umount",str(mount)],check=True)
             replace_region(candidate,sector*512,count*512,rebuilt)
             out=unpack(candidate,name,temp/("check-"+name))
