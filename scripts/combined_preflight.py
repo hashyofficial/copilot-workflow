@@ -308,7 +308,7 @@ def preflight():
             if part.endswith('_b'):
                 desc_rows.append((part,'inactive B slot: no A-slot bounds comparison','','','',count,'NOT_ASSESSED'))
                 continue
-            base=re.sub(r'_[ab]
+            base=re.sub(r'_[ab]$','',part)
             if base in hashtrees:
                 owner,desc=hashtrees[base]
                 tree_end=desc.get('tree_offset',0)+desc.get('tree_size',0)
