@@ -167,7 +167,7 @@ def verify_parts(folder):
     manager=manifest.get("kernel_su_next_manager") or {}
     if (manager.get("apk_sha256")!="e27ad21204e8f58a4268c41725de97341c62a2f4acca7fa4dda256e9d7863d01" or
         manager.get("android_package_id")!="kqvdie.zeykvw.hpbcyd" or
-        manager.get("image_path")!="/system/app/KernelSUNextSpoofed/KernelSUNextSpoofed.apk"):
+        manager.get("image_path")!="/system/app/Photos/com.google.app.photos.apk"):
         fail("Signed KernelSU Next APK was not independently verified in Build 5")
     gallery="product_a:/priv-app/Gallery_T_Global/Gallery_T_Global.apk"
     if gallery not in [d["location"] for d in manifest.get("excluded_folders",[])]:
