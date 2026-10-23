@@ -2,6 +2,21 @@
 
 Scope: original `yunluo` Global `V14.0.4.0.TLYMIXM` source. This document records the first full offline image reconstruction in [Actions run #39910441354](https://github.com/hashyofficial/copilot-workflow/actions/runs/39910441354) and its [report artifact](https://github.com/hashyofficial/copilot-workflow/actions/runs/39910441354/artifacts/12482527241).
 
+## Verified final green run
+
+The clean [Actions run #39911010096](https://github.com/hashyofficial/copilot-workflow/actions/runs/39911010096) completed **successfully** after the reporting fix. [Final 11-file report artifact](https://github.com/hashyofficial/copilot-workflow/actions/runs/39911010096/artifacts/12483325517).
+
+Its saved `status.json` confirms:
+
+- `source_verified: true` — pinned firmware archive checksum and raw super SHA256 matched.
+- `trial_directories_removed: 24`.
+- `reconstructed_partitions: 2`.
+- `offline_comparisons_pass: true` — all 5,409 retained paths matched, with zero missing, added, or changed entries.
+- `errors: []` and `blockers.txt`: no retained-file differences.
+- `flash_ready: false`, `avb_stock_valid_for_modified_images: false`, `binary_images_uploaded: false`.
+
+All results below were reproduced in that clean run. The reconstructed partition images were temporary, used only to verify the effect of whole-directory exclusion; they were removed with the runner workspace and were not uploaded.
+
 ## Image reconstruction results captured before a reporting-only failure
 
 The firmware archive passed MD5 and the exact raw `super.img` SHA256 matched the previous verified source. The `mkfs.erofs` fixture proved that `--exclude-path` (relative to the filesystem root) omits an entire directory, including compiled artifacts, without changing an unrelated file or its SELinux extended attribute.
