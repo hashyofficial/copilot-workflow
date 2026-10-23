@@ -71,7 +71,7 @@ rm -rf -- "$PARTS_DIR"
 echo "Transfer segments removed; only the complete ZIP remains."
 echo "To extract: unzip -q \"$ZIP\""
 
-if [[ "\${EXTRACT:-0}" == "1" ]]; then
+if [[ "${EXTRACT:-0}" == "1" ]]; then
   unzip -q "$ZIP"
   echo "Firmware folder extracted successfully."
 fi
