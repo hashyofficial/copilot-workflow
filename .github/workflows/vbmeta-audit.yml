@@ -12,6 +12,7 @@ jobs:
       - name: Check audit scripts and available storage
         run: |
           python3 -m py_compile scripts/download.py scripts/vbmeta_audit.py
+          python3 -m unittest discover -s tests -p 'test_vbmeta_audit.py' -v
           df -h /tmp
       - name: Install segmented firmware downloader
         run: |
