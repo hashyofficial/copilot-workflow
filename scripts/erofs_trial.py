@@ -344,7 +344,7 @@ def source_and_trial():
                "24 dedicated app folders intentionally omitted: product_a=18, system_a=6.",
                "9 higher-uncertainty held APKs remain in their unchanged source partitions.",
                "AVB: all three source vbmeta images unchanged; stock hashtrees will not match rebuilt partitions.",
-               "EROFS tool: "+run_checked("mkfs.erofs","-V").stdout.strip(),
+               "EROFS builder: mkfs.erofs (installed from Ubuntu 24.04 erofs-utils)",
                ""]
         for item in validations:
             c=item["comparison"]
