@@ -1,0 +1,29 @@
+name: Redmi Pad vbmeta audit
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  vbmeta-audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check audit scripts and available storage
+        run: |
+          python3 -m py_compile scripts/download.py scripts/vbmeta_audit.py
+          df -h /tmp
+      - name: Install segmented firmware downloader
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq aria2 curl ca-certificates
+      - name: Download verified firmware and inspect three AVB images (read-only)
+        run: python3 scripts/vbmeta_audit.py
+      - name: Upload AVB audit text reports only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: yunluo-miui14-vbmeta-audit
+          path: reports-avb/
+          if-no-files-found: warn
+          retention-days: 30
