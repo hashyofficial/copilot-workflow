@@ -1,0 +1,52 @@
+name: Redmi Pad Build 4 Experimental — clean stock, 107 folders
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/super-build4.yml
+
+permissions:
+  contents: read
+
+jobs:
+  rebuild-from-original-miui:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate every requested Build 4 app and all previous manifest entries
+        run: |
+          python3 -m py_compile scripts/pack_super_build4.py scripts/pack_super_build3.py scripts/pack_super_build2.py
+          python3 -m unittest discover -s tests -p 'test_*.py' -v
+          python3 -c "import sys;sys.path.insert(0,'scripts');from pack_super_build4 import build4_targets;t,p,k,n=build4_targets();assert len(t)==107 and len(n)==14 and len(k)==3;print('Verified',len(t),'app folders; new:',len(n),'protected:',len(k))"
+          df -h /tmp
+      - name: Install Android sparse, LP and EROFS tooling
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq aria2 curl ca-certificates erofs-utils attr util-linux file python3
+          python3 scripts/inventory.py --install-tools
+      - name: Download ORIGINAL verified Xiaomi firmware and build full super from scratch
+        run: sudo --preserve-env=GITHUB_WORKSPACE,ANDROID_HOME python3 scripts/pack_super_build4.py
+      - name: Restore report permissions
+        if: always()
+        run: |
+          sudo chown -R "$(id -u):$(id -g)" build4-super-artifact reports-build4 2>/dev/null || true
+      - name: Upload complete Build 4 sparse image parts with checksum manifest
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: yunluo-build4-experimental-fresh-stock-107-folders-super
+          path: build4-super-artifact/
+          compression-level: 0
+          retention-days: 14
+          if-no-files-found: error
+      - name: Upload Build 4 validations and exact package IDs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: yunluo-build4-experimental-verification
+          path: reports-build4/
+          retention-days: 30
+          if-no-files-found: warn
