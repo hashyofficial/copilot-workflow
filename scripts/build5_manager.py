@@ -48,8 +48,17 @@ def is_injected(path):
 def stage_apk(original_mount,staging,apk,aapt,before):
     verify_apk(apk,aapt)
     if staging.exists():raise RuntimeError("Staging directory already exists")
+    # OverlayFS exposes the original read-only EROFS inode metadata unchanged.
+    # A plain cp -a loses EROFS's nonstandard symlink mode bits, so it cannot
+    # pass retained-file equality checks even when the APK bytes are unchanged.
     staging.mkdir(parents=True)
-    subprocess.run(["cp","-a","--reflink=auto",str(original_mount)+"/.",str(staging)+"/"],check=True)
+    upper=staging.parent/(staging.name+"-upper")
+    work=staging.parent/(staging.name+"-work")
+    upper.mkdir()
+    work.mkdir()
+    subprocess.run(["mount","-t","overlay","overlay",
+                    "-o",f"lowerdir={original_mount},upperdir={upper},workdir={work}",
+                    str(staging)],check=True)
     installed=staging/MANAGER_PATH.lstrip("/")
     if installed.exists():raise RuntimeError("KernelSU manager path already exists in original image")
     parent=installed.parent
