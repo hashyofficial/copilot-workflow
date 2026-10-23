@@ -1,0 +1,171 @@
+name: Redmi Pad Build 5 — full original fastboot ROM only (108 folders + KernelSU Next manager)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/build5-full-firmware.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  full-firmware:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      BUILD5_STOCK_ARCHIVE: ${{ runner.temp }}/stock/yunluo_global_images_V14.0.4.0.TLYMIXM_20231207.0000.00_13.0_global_4003dcb1a4.tgz
+      BUILD5_MANAGER_APK: ${{ runner.temp }}/stock/KernelSUNextSpoofed.apk
+      BUILD5_PRIVATE: ${{ runner.temp }}/private-build5-super-NOT-UPLOADED
+      BUILD5_REPORTS: ${{ runner.temp }}/build5-report
+      ROM_NAME: yunluo_MIUI14_Global_Build5_108Folders_KernelSUNext_AVBDisabled_Fastboot.zip
+      ROM_RELEASE: yunluo-miui14-build5-complete-firmware
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile Build 5 and confirm exactly 108 stock APK directories
+        run: |
+          set -euo pipefail
+          python3 -m py_compile scripts/build5_manager.py scripts/pack_super_build5.py scripts/repack_build5_fastboot.py
+          python3 -m unittest discover -s tests -p 'test_*.py' -v
+          python3 - <<'PY'
+          import sys
+          sys.path.insert(0,'scripts')
+          from build5_manager import targets_from_build4,GALLERY_LOCATION
+          d,p,r,n=targets_from_build4()
+          assert len(d)==108 and len(n)==15 and GALLERY_LOCATION in d and len(r)==3
+          print("Verified 108 original app folders; all 3 previously protected apps remain protected")
+          PY
+          df -h "$RUNNER_TEMP"
+      - name: Install stock ROM and EROFS utilities
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq aria2 curl ca-certificates erofs-utils attr util-linux file python3 unzip
+          python3 scripts/inventory.py --install-tools
+      - name: Download official v3.4.2 spoofed KernelSU Next manager; check signature, hash and package
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/stock"
+          curl --fail --location --retry 8 --retry-all-errors --retry-delay 5 \
+            -o "$BUILD5_MANAGER_APK" \
+            "https://github.com/KernelSU-Next/KernelSU-Next/releases/download/v3.4.2/KernelSU_Next_v3.4.2-spoofed_33355-release.apk"
+          echo "e27ad21204e8f58a4268c41725de97341c62a2f4acca7fa4dda256e9d7863d01  $BUILD5_MANAGER_APK" | sha256sum -c -
+          test "$(stat -c '%s' "$BUILD5_MANAGER_APK")" = 16684355
+          AAPT="$(find "$ANDROID_HOME/build-tools" -name aapt -type f | sort -V | tail -1)"
+          SIGNER="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)"
+          test -x "$AAPT" && test -x "$SIGNER"
+          "$AAPT" dump badging "$BUILD5_MANAGER_APK" | grep -E "^(package:|sdkVersion:|targetSdkVersion:)" | head -4
+          "$AAPT" dump badging "$BUILD5_MANAGER_APK" | grep -q "name='kqvdie.zeykvw.hpbcyd'"
+          "$SIGNER" verify --verbose "$BUILD5_MANAGER_APK"
+      - name: Download and verify ORIGINAL Xiaomi global MIUI firmware
+        run: |
+          mkdir -p "$BUILD5_REPORTS"
+          python3 scripts/download.py \
+            --output "$BUILD5_STOCK_ARCHIVE" \
+            --report "$BUILD5_REPORTS/stock-download.json"
+          echo "4003dcb1a4db404e2768801fdb429c4a  $BUILD5_STOCK_ARCHIVE" | md5sum -c -
+      - name: Build private Build5 sparse super from original EROFS; no super artifact upload
+        run: |
+          sudo --preserve-env=BUILD5_STOCK_ARCHIVE,BUILD5_MANAGER_APK,BUILD5_PRIVATE,BUILD5_REPORTS,GITHUB_WORKSPACE,ANDROID_HOME \
+            python3 scripts/pack_super_build5.py
+          sudo chown -R "$(id -u):$(id -g)" "$BUILD5_PRIVATE" "$BUILD5_REPORTS"
+          python3 - <<'PY'
+          import json,os,pathlib
+          folder=pathlib.Path(os.environ["BUILD5_PRIVATE"])
+          m=json.loads((folder/"manifest.json").read_text())
+          assert m["build"]=="5-experimental" and m["total_directories_removed"]==108
+          assert m["kernel_su_next_manager"]["android_package_id"]=="kqvdie.zeykvw.hpbcyd"
+          assert m["cell_broadcast_service_apex_modified"] is False
+          print("Private Build5 super validated and kept inside runner; no standalone image artifact")
+          PY
+      - name: Replace only super.img and vbmeta.img inside full stock firmware and refresh their CRC metadata
+        run: |
+          mkdir -p "$RUNNER_TEMP/packaged"
+          python3 scripts/repack_build5_fastboot.py \
+            --archive "$BUILD5_STOCK_ARCHIVE" \
+            --artifact "$BUILD5_PRIVATE" \
+            --zip "$RUNNER_TEMP/packaged/$ROM_NAME" \
+            --report "$BUILD5_REPORTS"
+          test -s "$RUNNER_TEMP/packaged/$ROM_NAME"
+      - name: Split full firmware ZIP and verify reassembly and per-part hashes
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/packaged"
+          split -b 768M -d -a 3 "$ROM_NAME" "$ROM_NAME.part-"
+          sha256sum "$ROM_NAME" > ZIP_SHA256.txt
+          sha256sum "$ROM_NAME".part-* > PARTS_SHA256.txt
+          python3 - <<'PY'
+          import glob,hashlib,json,os,pathlib
+          d=pathlib.Path(os.environ["RUNNER_TEMP"])/"packaged"
+          report=json.loads((pathlib.Path(os.environ["BUILD5_REPORTS"])/"VERIFICATION.json").read_text())
+          files=sorted(d.glob(os.environ["ROM_NAME"]+".part-*"))
+          if len(files)<2:raise SystemExit("Missing split ZIP parts")
+          sha=hashlib.sha256();total=0;parts=[]
+          for f in files:
+              h=hashlib.sha256()
+              with f.open("rb") as stream:
+                  for chunk in iter(lambda:stream.read(8*1024*1024),b""):
+                      sha.update(chunk);h.update(chunk);total+=len(chunk)
+              parts.append({"file":f.name,"bytes":f.stat().st_size,"sha256":h.hexdigest()})
+          if sha.hexdigest()!=report["firmware_zip_sha256"] or total!=report["firmware_zip_bytes"]:
+              raise SystemExit("Split ZIP does not match complete repacked firmware")
+          (d/"DOWNLOAD_MANIFEST.json").write_text(json.dumps({
+              "zip_filename":os.environ["ROM_NAME"],
+              "zip_bytes":total,"zip_sha256":sha.hexdigest(),"parts":parts,
+              "build":5,"app_folders_removed":108,
+              "manager_apk_sha256":report["kernel_su_manager_apk_sha256"]
+          },indent=2)+"\n")
+          print("FULL BUILD5 ZIP VERIFIED: SHA256",sha.hexdigest(),"bytes",total,flush=True)
+          PY
+          rm "$ROM_NAME"
+          df -h "$RUNNER_TEMP"
+      - name: Publish ONLY full fastboot firmware ZIP parts and checksum files
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/packaged"
+          cat > "$RUNNER_TEMP/build5-release-notes.md" <<'EOF'
+          Xiaomi Redmi Pad (yunluo), Android 13, MIUI 14 Global V14.0.4.0.TLYMIXM.
+          Build 5 Experimental: 108 complete stock app folders removed, adding Gallery to all
+          107 Build 4 removals. Signed official KernelSU Next v3.4.2 spoofed manager APK
+          preinstalled as a normal /system/app/KernelSUNextSpoofed/KernelSUNextSpoofed.apk.
+          App manager installation alone does NOT install kernel-level root support.
+          Fresh original Xiaomi ROM source; all non-target images preserved.
+
+          Exactly two IMAGE files have changed:
+            images/super.img (Build5 system contents)
+            images/vbmeta.img (top-level AVB0 flags 3; verification and verity disabled).
+          Two dependent checksum TEXT files have changed:
+            images/crclist.txt (vbmeta_a checksum)
+            images/sparsecrclist.txt (super sparse CRC values).
+          All original flashing scripts, original scatter files and remaining firmware
+          image files (including vbmeta_system and vbmeta_vendor) preserved.
+          No independent super.img artifact will be uploaded or published.
+
+          Download ALL ZIP part files and ZIP_SHA256.txt.
+          Reassemble via cat <zipfilename>.part-* > <zipfilename>
+          Validate via sha256sum -c ZIP_SHA256.txt
+
+          UNLOCKED BOOTLOADER REQUIRED. Never run flash_all_lock.sh or relock bootloader.
+          Original flash_all.sh erases metadata and overwrites userdata; data loss expected.
+          Combined Build5 firmware has passed offline checks only; not device-flash-tested.
+          EOF
+          gh release create "$ROM_RELEASE" \
+            "$ROM_NAME".part-* DOWNLOAD_MANIFEST.json ZIP_SHA256.txt PARTS_SHA256.txt \
+            -R "$GH_REPO" --target "$GITHUB_SHA" \
+            --title "Redmi Pad Build 5 Experimental — full MIUI fastboot ROM only (108 folders)" \
+            --notes-file "$RUNNER_TEMP/build5-release-notes.md" \
+            --latest=false --prerelease
+      - name: Upload small offline verification report only; no super image artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: yunluo-build5-full-firmware-offline-verification
+          path: ${{ runner.temp }}/build5-report/
+          retention-days: 30
+          if-no-files-found: warn
+      - name: Confirm full-firmware release assets
+        if: success()
+        run: |
+          gh release view "$ROM_RELEASE" -R "$GH_REPO" --json url,assets --jq '{url:.url,assets:[.assets[]|{name:.name,size:.size}]}'
