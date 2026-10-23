@@ -11,5 +11,17 @@ jobs:
   validate-runner:
     runs-on: ubuntu-24.04
     steps:
-      - name: Check GitHub runner availability
-        run: echo "GitHub Actions runner ready for the yunluo firmware packaging workflow"
+      - uses: actions/checkout@v4
+      - name: Parse both repack workflows and report YAML errors
+        run: |
+          ruby - <<'RUBY'
+          require 'yaml'
+          Dir['.github/workflows/*repack*.yml'].each do |f|
+            begin
+              y=YAML.parse_file(f)
+              puts "#{f}: YAML parsed"
+            rescue => e
+              warn "#{f}: #{e.message}"
+            end
+          end
+          RUBY
