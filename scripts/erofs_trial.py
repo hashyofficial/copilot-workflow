@@ -169,7 +169,7 @@ def mkfs_report(image,mount,excluded,uuid):
     cmd=["mkfs.erofs","-z","lz4hc,9","-T",str(REQUIRED_TIME),
          "-U",uuid]
     for folder in excluded:
-        cmd+=["--exclude-path="+folder]
+        cmd+=["--exclude-path="+folder.lstrip("/")]
     cmd+=[str(image),str(mount)]
     return run_checked(*cmd)
 
