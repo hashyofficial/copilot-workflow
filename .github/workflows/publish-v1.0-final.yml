@@ -1,0 +1,58 @@
+name: Release V 1.0 Final — Redmi Pad MIUI 14 verified firmware
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/publish-v1.0-final.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      EXPECTED_SHA: c06c6b98772cca371d7cdcf7d69025e1539780eb2c279a54e0bb122e0a05ad7c
+      OLD_TAG: yunluo-miui14-build5-complete-firmware
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate v1.0 changelog, download script and old verified assets
+        run: |
+          set -euo pipefail
+          bash -n scripts/download-v1.0-full-firmware.sh
+          grep -Fq "$EXPECTED_SHA" scripts/download-v1.0-full-firmware.sh
+          grep -Fq "$EXPECTED_SHA" docs/RELEASE_V1.0_FINAL.md
+          gh release view "$OLD_TAG" -R "$GH_REPO" --json assets -q '.assets[].name' > "$RUNNER_TEMP/old-assets.txt"
+          for n in 000 001 002 003 004; do
+            grep -Fq "yunluo_MIUI14_Global_Build5_108Folders_GalleryRemoved_AVBDisabled_Fastboot.zip.part-$n" "$RUNNER_TEMP/old-assets.txt"
+          done
+          grep -Fxq 'ZIP_SHA256.txt' "$RUNNER_TEMP/old-assets.txt"
+          size="$(gh release view "$OLD_TAG" -R "$GH_REPO" --json assets |
+            jq '[.assets[] | select(.name | startswith("yunluo_MIUI14_Global_Build5_108Folders_GalleryRemoved_AVBDisabled_Fastboot.zip.part-")) | .size] | add')"
+          test "$size" = 3697320245
+          echo "Verified source release includes all original transfer assets ($size bytes)"
+      - name: Publish V 1.0 Final stable release and the downloader, without multipart firmware attachments
+        run: |
+          set -euo pipefail
+          gh release create v1.0 \
+            scripts/download-v1.0-full-firmware.sh \
+            docs/RELEASE_V1.0_FINAL.md \
+            -R "$GH_REPO" --target "$GITHUB_SHA" \
+            --title "Release V 1.0 Final — Final Fastboot Image" \
+            --notes-file docs/RELEASE_V1.0_FINAL.md \
+            --latest
+          gh release view v1.0 -R "$GH_REPO" --json name,isPrerelease,isDraft,url,assets \
+            -q '{title:.name,prerelease:.isPrerelease,draft:.isDraft,url:.url,assets:[.assets[]|{name:.name,size:.size}]}'
+      - name: Attempt repository rename to Redmi-Pad-Yunluo-Miui-Project
+        run: |
+          set -euo pipefail
+          if gh api -X PATCH "repos/$GH_REPO" \
+            -f name='Redmi-Pad-Yunluo-Miui-Project' > "$RUNNER_TEMP/renamed-repo.json" \
+            2> "$RUNNER_TEMP/rename-error.txt"; then
+            jq -r '"Repository renamed: " + .html_url' "$RUNNER_TEMP/renamed-repo.json"
+          else
+            echo "::warning::GitHub Actions token cannot rename this repository. User can rename in Settings > General > Repository name."
+            sed -n '1,3p' "$RUNNER_TEMP/rename-error.txt"
+          fi
