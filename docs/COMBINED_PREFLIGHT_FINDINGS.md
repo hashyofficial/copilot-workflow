@@ -33,6 +33,10 @@ The following candidate package identifiers appear in at least one **privapp-per
 
 A config entry pointing to a missing package is not by itself evidence that boot will fail; however privileged-permission XML is boot-relevant enough to inspect before finalizing an image. Do not remove entire shared permission XML files when deleting one app.
 
+## Conservative candidate split
+
+The original 33-file candidate manifest remains unchanged in `config/first-pass-33.txt`. An **optional** stricter list of 24 candidates is in [`config/optional-trial-24.txt`](../config/optional-trial-24.txt); it excludes the nine APKs with direct privileged-permission XML references listed above. This is a precaution, not proof that the nine are actually needed for boot or that the other 24 will boot safely. **No build consumes the 24-file list yet.**
+
 ## Other references
 
 - Xiaomi `device_features/yunluo.xml`, display preferences and fixed-orientation lists reference MIUI Cit, Notes, Sound Recorder, and Screen Recorder.
