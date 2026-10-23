@@ -27,7 +27,7 @@ def install():
     api="https://api.github.com/repos/meator/android-tools-static/releases/tags/36.0.1"
     req=urllib.request.Request(api,headers={"User-Agent":"yunluo-inventory","Accept":"application/vnd.github+json"})
     with urllib.request.urlopen(req,timeout=60) as r:release=json.load(r)
-    assets=[x for x in release["assets"] if re.search(r"linux-standardlayout-extra-x86_64\\.tar\\.gz$",x["name"])]
+    assets=[x for x in release["assets"] if x["name"] == "android-tools-static-linux-standardlayout-extra-x86_64.tar.gz"]
     if len(assets)!=1:raise RuntimeError("No unique pinned Linux tools asset: "+str([x["name"] for x in release["assets"]]))
     asset=assets[0];digest=asset.get("digest") or ""
     if not digest.startswith("sha256:"):raise RuntimeError("Release asset lacks verifiable SHA256")
@@ -104,13 +104,27 @@ def inspect():
             superfile.unlink();superfile=raw
         write("super-source.txt",f"Sparse source: {sparse}\nRaw size bytes: {superfile.stat().st_size}\nSHA256: {sha(superfile)}\n")
         parts=[]
+        seen_layouts=set()
         for slot in (0,1):
             r=command(TOOLS/"lpdump","-s",slot,superfile)
             write(f"lpdump-slot{slot}.txt",r.stdout+"\nSTDERR:\n"+r.stderr+f"\nExit: {r.returncode}\n")
-            if r.returncode==0:
-                for n in dict.fromkeys(re.findall(r"^\\s*Name:\\s*([A-Za-z0-9_.-]+)\\s*$",r.stdout,re.M)):
-                    parts.append((slot,n))
-        if not parts:raise RuntimeError("lpdump did not report logical partitions")
+            if r.returncode!=0:
+                errors.append(f"lpdump slot {slot} failed: {r.stderr.strip()}")
+                continue
+            layout=r.stdout.split("Metadata version:",1)[-1]
+            if layout in seen_layouts:
+                continue  # both metadata slots map exactly the same layout
+            seen_layouts.add(layout)
+            table=r.stdout.split("Partition table:",1)[-1].split("Block device table:",1)[0]
+            for block in table.split("------------------------"):
+                name=re.search(r"(?m)^\s*Name:\s*([A-Za-z0-9_.-]+)\s*$",block)
+                if not name:
+                    continue
+                # Empty A/B placeholders have no mapped extents to inventory.
+                if not re.search(r"(?m)^\s*\d+\s*\.\.\s*\d+\s+(linear|zero)\b",block):
+                    continue
+                parts.append((slot,name.group(1)))
+        if not parts:raise RuntimeError("lpdump did not report populated logical partitions")
         for slot,part in parts:
             out=TMP/"unpacked";out.mkdir(exist_ok=True)
             try:
