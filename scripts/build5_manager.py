@@ -67,6 +67,11 @@ def stage_apk(original_mount,staging,apk,aapt,before):
         os.chown(path,0,0)
         os.chmod(path,mode)
         os.setxattr(path,"security.selinux",label)
+    # Creating the new subdirectory changes /system/app's mtime.
+    # Restore it exactly; all original filesystem paths must remain unchanged.
+    if "/system/app" not in before:raise RuntimeError("Missing original /system/app metadata")
+    parent_stat=root_apps.stat()
+    os.utime(root_apps,ns=(parent_stat.st_atime_ns,before["/system/app"]["mtime_ns"]))
     staged=tree_map(staging)
     original_only={k:v for k,v in staged.items() if not is_injected(k)}
     diff=compare_trees(before,original_only,[])
