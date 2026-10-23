@@ -1,0 +1,50 @@
+name: Redmi Pad slot-A super candidate
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/super-candidate.yml
+permissions:
+  contents: read
+
+jobs:
+  build-super:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate build script, manifest, and workspace
+        run: |
+          python3 -m py_compile scripts/pack_super_candidate.py
+          python3 -m unittest discover -s tests -p 'test_*.py' -v
+          python3 -c "import sys;sys.path.insert(0,'scripts');from erofs_trial import proposed;t,s=proposed();assert len(t)==24"
+          df -h /tmp
+      - name: Install verified Android image tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq aria2 curl ca-certificates erofs-utils attr util-linux file python3
+          python3 scripts/inventory.py --install-tools
+      - name: Build modified slot-A super, verify retained metadata and sparse image roundtrip
+        run: sudo --preserve-env=GITHUB_WORKSPACE,ANDROID_HOME python3 scripts/pack_super_candidate.py
+      - name: Transfer output permissions to runner
+        if: always()
+        run: |
+          sudo chown -R "$(id -u):$(id -g)" super-artifact reports-super 2>/dev/null || true
+      - name: Upload modified super image parts and checksums
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: yunluo-miui14-slot-a-super-candidate
+          path: super-artifact/
+          compression-level: 0
+          retention-days: 14
+          if-no-files-found: error
+      - name: Upload independent build validation logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: yunluo-super-build-results
+          path: reports-super/
+          retention-days: 30
+          if-no-files-found: warn
