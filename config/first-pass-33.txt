@@ -1,0 +1,36 @@
+# First-pass APK removals only. Each line is an EXACT location from the verified yunluo MIUI 14 super.img inventory.
+# REVIEW STATUS: lower-risk candidates, NOT verified safe to flash.
+# Deliberately exclude setup, safety, Xiaomi framework, cloud/account integration, Google Mainline and MediaTek runtime services.
+system_a:/system/priv-app/EngineerMode/EngineerMode.apk
+system_a:/system/priv-app/YGPS/YGPS.apk
+system_a:/system/app/LocationEM2/LocationEM2.apk
+product_a:/pangu/system/app/FM_MTK/FM_MTK.apk
+product_a:/data-app/MIUINotes/MIUINotes.apk
+product_a:/data-app/MIUISoundRecorderTargetSdk30Global/MIUISoundRecorderTargetSdk30Global.apk
+product_a:/data-app/MIUIScreenRecorderLiteGlobal/MIUIScreenRecorderLiteGlobal.apk
+product_a:/app/AnalyticsCore/AnalyticsCore.apk
+product_a:/app/MSA-Global/MSA-Global.apk
+product_a:/app/MiuiBugReportGlobal/MiuiBugReportGlobal.apk
+product_a:/app/MiuiCit/MiuiCit.apk
+system_a:/system/app/CatchLog/CatchLog.apk
+system_a:/system/app/DebugLoggerUI/DebugLoggerUI.apk
+product_a:/data-app/GlobalWPSLITE/GlobalWPSLITE.apk
+product_a:/data-app/MIBrowserGlobal_removable/MIBrowserGlobal_removable.apk
+product_a:/app/CalendarGoogle/CalendarGoogle.apk
+product_a:/app/GoogleLocationHistory/GoogleLocationHistory.apk
+product_a:/app/GoogleOne/GoogleOne.apk
+product_a:/app/Maps/Maps.apk
+product_a:/app/YouTube/YouTube.apk
+product_a:/data-app/Drive/Drive.apk
+product_a:/data-app/GoogleNews/GoogleNews.apk
+product_a:/data-app/Meet/Meet.apk
+product_a:/data-app/Photos/Photos.apk
+product_a:/data-app/Podcasts/Podcasts.apk
+product_a:/data-app/Videos/Videos.apk
+product_a:/data-app/YTMusic/YTMusic.apk
+product_a:/priv-app/Wellbeing/Wellbeing.apk
+system_ext_a:/priv-app/GoogleFeedback/GoogleFeedback.apk
+system_a:/system/app/BasicDreams/BasicDreams.apk
+system_a:/system/app/EasterEgg/EasterEgg.apk
+system_a:/system/app/GooglePrintRecommendationService/GooglePrintRecommendationService.apk
+system_a:/system/priv-app/MusicFX/MusicFX.apk
