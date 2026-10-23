@@ -29,17 +29,26 @@ The first final release of the custom-debloated Redmi Pad fastboot firmware, bas
 - **Patched vbmeta SHA-256:** `11322edca2df064b4d7b790bd2fb278c6083e8bec8cd47f4d5774d34ae3e4af9`
 - **Patched vbmeta AVB0 flags:** `3`.
 
-## Download and file-size limitation
+## Download: ONE full ZIP (non-expiring Actions-artifact alternative)
 
-GitHub Release assets must individually be **smaller than 2 GiB**, so GitHub cannot directly host this 3.70 GB complete ZIP as one release attachment. This release therefore offers a one-command downloader/assembler. It obtains the immutable, SHA-256-verified five transfer segments from the [successful Build 5 source release](https://github.com/hashyofficial/copilot-workflow/releases/tag/yunluo-miui14-build5-complete-firmware) and produces **one complete, normal ZIP file** on your computer. The segments are deleted locally only after the full ZIP checksum matches.
+GitHub Release attachments are limited to files under **2 GiB**, so this **3.70 GB** complete ZIP cannot be attached directly to a GitHub Release. The complete, **unsplit** ZIP is hosted at GitHub Container Registry (GHCR) instead:
 
-```bash
-bash download-v1.0-full-firmware.sh
+```text
+ghcr.io/hashyofficial/redmi-pad-yunluo-miui-project-firmware:v1.0
 ```
 
-Once the command confirms `ZIP SHA256 OK`, extract the **single complete ZIP** as normal; it contains the original Xiaomi fastboot folder including `flash_all.sh`, `images/super.img`, and `images/vbmeta.img`.
+GitHub Actions successfully verified the ZIP SHA-256 and internal files, pushed the **one full 3,697,320,245-byte ZIP** into this package, and verified its one-blob registry manifest. A separate anonymous access check also succeeded.
 
-The downloader and the source release's binary transfer assets are normal GitHub Release files, **not expiring GitHub Actions artifacts**. As with any GitHub repository assets, continued availability depends on their remaining hosted and not being deleted.
+Install the [official ORAS CLI](https://oras.land/docs/installation/) and run:
+
+```bash
+oras pull ghcr.io/hashyofficial/redmi-pad-yunluo-miui-project-firmware:v1.0
+echo "c06c6b98772cca371d7cdcf7d69025e1539780eb2c279a54e0bb122e0a05ad7c  yunluo_MIUI14_Global_Build5_108Folders_GalleryRemoved_AVBDisabled_Fastboot.zip" | sha256sum -c -
+```
+
+Alternatively, download and run `download_full_zip.sh` from [Release v1.0](https://github.com/hashyofficial/copilot-workflow/releases/tag/v1.0) after installing ORAS. **Do not mistake GitHub's automatically generated repository "Source code (zip)" for the full firmware.**
+
+GHCR packages have no automatic GitHub Actions artifact expiry date. Continued availability is subject to the owner retaining the package and GitHub hosting policies.
 
 ## Flashing warnings
 
