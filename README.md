@@ -1,85 +1,67 @@
-# Redmi Pad Yunluo MIUI Project
-
-**Release V 1.0 Final — Final Fastboot Image**
-
-Custom debloated Xiaomi Redmi Pad **yunluo** fastboot firmware, based on **MIUI 14 Global V14.0.4.0.TLYMIXM (Android 13)**.
-
-The device owner confirmed **Build 5 booted successfully on the real Redmi Pad** after flashing the final verified fastboot firmware.
-
-- **108 entire preinstalled app folders removed**, including the Gallery folder as the final change.
-- **Zero additional APKs** injected. Existing protected services and Cell Broadcast Service APEX retained.
-- Modified `images/super.img`, patched `images/vbmeta.img` (AVB flags = 3), and corrected the corresponding two Xiaomi CRC checksum text files.
-- Other original Xiaomi firmware images, flashing scripts, and partition/scatter files retained.
-- Full firmware ZIP **SHA-256:** `c06c6b98772cca371d7cdcf7d69025e1539780eb2c279a54e0bb122e0a05ad7c`.
-
-**[Final v1.0 changelog](docs/RELEASE_V1.0_FINAL.md)** · **[Firmware download helper](scripts/download-v1.0-full-firmware.sh)**
-
-**Important download constraint:** The complete ZIP is ~3.70 GB and GitHub limits each Release attachment to under 2 GiB. The helper retrieves the already verified transfer files from the original [Build 5 GitHub Release](https://github.com/hashyofficial/copilot-workflow/releases/tag/yunluo-miui14-build5-complete-firmware), validates SHA-256 and produces **one fully assembled ZIP**, removing the temporary parts afterward. These are GitHub Release assets, not expiring Actions artifacts.
-
-On Linux (from the folder where you want the full ZIP), download the v1.0 release's `download-v1.0-full-firmware.sh` and run:
-
-```bash
-bash download-v1.0-full-firmware.sh
-```
-
-**Redmi Pad yunluo only. Unlocked bootloader required. Never use `flash_all_lock.sh` or relock the bootloader. Stock `flash_all.sh` can erase user data. Back up before flashing.**
-
----
-
-## Archived development and inventory notes
-
-The following describes the project's original Phase 1 and is retained for historical reference. For current release information, follow the final v1.0 changelog above.
-
 # Redmi-Pad-Yunluo-Miui-Project
 
-**Community-maintained debloated fastboot firmware for Xiaomi Redmi Pad (codename: `yunluo`).**
+**Release V1.0 Final — Fastboot Image**  
+Xiaomi Redmi Pad (`yunluo`) · **MIUI 14 Global `V14.0.4.0.TLYMIXM`** · Android 13
 
-## Release V 1.0 Final — Final Fastboot Image
+This community project provides a debloated full **fastboot firmware** package built from Xiaomi's verified original ROM. The author successfully booted the final Build 5 firmware on a Redmi Pad, after offline verification of the logical-partition contents, fastboot flashing files, and ZIP integrity.
 
-**Base firmware:** MIUI 14 Global `V14.0.4.0.TLYMIXM` · Android 13.  
-**Status:** successfully boot-tested on the owner's Redmi Pad; full ZIP checksum and firmware structure verified offline.  
-**Latest stable release:** [v1.0 Final](https://github.com/hashyofficial/copilot-workflow/releases/tag/v1.0)  
-**Full changelog:** [RELEASE_NOTES_V1.md](RELEASE_NOTES_V1.md)
+**[Download V1.0 Final](https://github.com/hashyofficial/copilot-workflow/releases/tag/v1.0.0)** · **[Full changelog](CHANGELOG.md)**
 
-### Changes in the final firmware
+## What changed?
 
-Build 5 is based on fresh Xiaomi stock firmware, preserving the 107 whole-folder app removals from Builds 1–4 and adding the Gallery directory as removal #108. **All 108 selected app folders and their contents are removed**, with no new APKs added.
+- **108 complete preinstalled APK folders removed** (24 + 42 + 27 + 14 + **Gallery**). The complete `Gallery_T_Global` folder is excluded, not just its APK.
+- **No APKs added** to the firmware; KernelSU Next is **not** included.
+- The verified `images/super.img` contains the debloated logical-partition filesystems while retaining Xiaomi's dynamic-partition layout.
+- `images/vbmeta.img` is patched with **AVB flags = 3**, disabling verification and dm-verity checks. The original signed AVB signature is invalidated, so the bootloader **must remain unlocked**.
+- `images/crclist.txt` and `images/sparsecrclist.txt` include recomputed values for the modified images.
+- `flash_all.sh`, both original scatter files and other firmware images are unchanged.
+- Specifically retained: Cell Broadcast Service APEX, `LPPeService`, `StatementService` and `Provision`.
 
-The firmware bundle contains the rebuilt `images/super.img` and patched `images/vbmeta.img` (AVB flags = 3), and recalculated `crclist.txt` and `sparsecrclist.txt` entries. Stock flash scripts, scatter files, and all remaining firmware images are preserved. Protected Provision, StatementService, LPPeService, and Cell Broadcast Service remain untouched.
+## Download
 
-### Download ONE complete ZIP
+GitHub has a per-asset size limit, so the final complete ZIP is published in **two halves**, each under 2 GB:
 
-**Filename:** `yunluo_MIUI14_Global_Build5_108Folders_GalleryRemoved_AVBDisabled_Fastboot.zip`
-
-**Size:** 3,697,320,245 bytes (3.44 GiB)  
-**SHA-256:**
 ```text
-c06c6b98772cca371d7cdcf7d69025e1539780eb2c279a54e0bb122e0a05ad7c
+Redmi_Pad_Yunluo_MIUI14_V1.0_Final_Fastboot.zip.001
+Redmi_Pad_Yunluo_MIUI14_V1.0_Final_Fastboot.zip.002
+PARTS_SHA256.txt
+V1_FINAL_SHA256.txt
+EXTRACT_LINUX.sh
+V1_DOWNLOAD_MANIFEST.json
 ```
 
-GitHub Releases restricts individual asset files to under 2 GiB, so the **single full ZIP** is hosted as a **single OCI artifact** in GitHub Container Registry instead of temporary GitHub Actions artifacts. No multipart files are attached to **v1.0 Final**.
+Download **both** ZIP halves and the checksum files into the same directory. The two halves are **not independent ZIPs**: they form **one complete full-firmware ZIP** when joined.
 
-With [ORAS](https://oras.land/docs/installation/) installed:
+On Linux:
+
 ```bash
-oras pull ghcr.io/hashyofficial/redmi-pad-yunluo-miui-project-firmware:v1.0
-sha256sum -c ZIP_SHA256.txt
-unzip -t yunluo_MIUI14_Global_Build5_108Folders_GalleryRemoved_AVBDisabled_Fastboot.zip
+bash EXTRACT_LINUX.sh
 ```
 
-Or download `download_full_zip.sh` and `ZIP_SHA256.txt` from the [v1.0 Final GitHub Release](https://github.com/hashyofficial/copilot-workflow/releases/tag/v1.0), then run `bash download_full_zip.sh`.
+The included script checks both parts, joins them, verifies the complete ZIP and extracts all firmware files. Alternatively:
 
-**Important:** GitHub creates container packages with private visibility initially. For anonymous download, the owner needs to set [the firmware container package](https://github.com/users/hashyofficial/packages/container/redmi-pad-yunluo-miui-project-firmware) to **Public** from its package settings.
+```bash
+ZIP="Redmi_Pad_Yunluo_MIUI14_V1.0_Final_Fastboot.zip"
+sha256sum -c PARTS_SHA256.txt
+cat "$ZIP.001" "$ZIP.002" > "$ZIP"
+sha256sum -c V1_FINAL_SHA256.txt
+unzip "$ZIP"
+```
 
-### Flashing safety
+**Final full ZIP SHA-256:** `c06c6b98772cca371d7cdcf7d69025e1539780eb2c279a54e0bb122e0a05ad7c`
 
-- **Device:** Xiaomi Redmi Pad `yunluo` only; confirm codename and base firmware.
-- **Bootloader:** must remain **unlocked**. Do not use `flash_all_lock.sh` or relock the bootloader.
-- **Data:** Xiaomi's original `flash_all.sh` may erase personal data. Back up first.
-- **Integrity:** check ZIP SHA-256 before extraction or flashing.
-- **Source:** the custom firmware is unofficial and not affiliated with Xiaomi.
+**Original vendor ROM MD5:** `4003dcb1a4db404e2768801fdb429c4a`
 
-### Build notes
+The V1.0 release uses GitHub **Release assets**, not short-lived GitHub Actions artifacts. There is **no preset expiration date** for these release downloads, although repository owners or GitHub can remove them later.
 
-All source reconstruction, APK-folder exclusion checks, EROFS integrity validation, preservation of logical partition metadata, sparse image verification, and fastboot archive repacking are implemented in `scripts/` and `.github/workflows/`. The final release is promoted from successful **Build 5 Gallery-only** and intentionally contains **no injected KernelSU manager APK**.
+## Important flashing warnings
 
-Original Xiaomi firmware MD5: `4003dcb1a4db404e2768801fdb429c4a`.
+**Only for Xiaomi Redmi Pad (`yunluo`); an unlocked bootloader is required.** Check the product/device identity before flashing. **Never use `flash_all_lock.sh` or relock the bootloader with this modified firmware.**
+
+The stock `flash_all.sh` writes the images from the extracted firmware to their intended partitions (`super`, `vbmeta_ab`, etc.) and **overwrites userdata**. Back up everything important before flashing. The final firmware booted on the project's device, but compatibility on other devices/configurations is not guaranteed.
+
+## Development provenance
+
+V1.0 uses **exactly the same verified firmware ZIP bytes** as the [successful Build 5 packaging release](https://github.com/hashyofficial/copilot-workflow/releases/tag/yunluo-miui14-build5-complete-firmware) from [Build 5 run #39970696830](https://github.com/hashyofficial/copilot-workflow/actions/runs/39970696830). V1.0 simply redistributes the same complete ZIP using **two equal-sized chunks** and improved instructions; there are no additional image or firmware changes.
+
+This is an independent community-modified fastboot ROM, not an official Xiaomi release.
