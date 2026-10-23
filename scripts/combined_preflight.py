@@ -174,7 +174,9 @@ def scan_image(slot,part,superraw,aapt,targets,full_apks,config_texts,
             for directory,subdirs,files in os.walk(mount,followlinks=False):
                 base=Path(directory)
                 if part in SAFE_PARTS:
-                    for entity in [base]+[base/n for n in subdirs+files]:
+                    # Record each directory once (when walked), each file once,
+                    # plus symlinked directories that os.walk will not enter.
+                    for entity in [base]+[base/n for n in files]+[base/n for n in subdirs if (base/n).is_symlink()]:
                         snapshots.append(snapshot_entry(entity,part,mount))
                 for filename in files:
                     path=base/filename
