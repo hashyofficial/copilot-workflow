@@ -1,3 +1,35 @@
+# Redmi Pad Yunluo MIUI Project
+
+**Release V 1.0 Final — Final Fastboot Image**
+
+Custom debloated Xiaomi Redmi Pad **yunluo** fastboot firmware, based on **MIUI 14 Global V14.0.4.0.TLYMIXM (Android 13)**.
+
+The device owner confirmed **Build 5 booted successfully on the real Redmi Pad** after flashing the final verified fastboot firmware.
+
+- **108 entire preinstalled app folders removed**, including the Gallery folder as the final change.
+- **Zero additional APKs** injected. Existing protected services and Cell Broadcast Service APEX retained.
+- Modified `images/super.img`, patched `images/vbmeta.img` (AVB flags = 3), and corrected the corresponding two Xiaomi CRC checksum text files.
+- Other original Xiaomi firmware images, flashing scripts, and partition/scatter files retained.
+- Full firmware ZIP **SHA-256:** `c06c6b98772cca371d7cdcf7d69025e1539780eb2c279a54e0bb122e0a05ad7c`.
+
+**[Final v1.0 changelog](docs/RELEASE_V1.0_FINAL.md)** · **[Firmware download helper](scripts/download-v1.0-full-firmware.sh)**
+
+**Important download constraint:** The complete ZIP is ~3.70 GB and GitHub limits each Release attachment to under 2 GiB. The helper retrieves the already verified transfer files from the original [Build 5 GitHub Release](https://github.com/hashyofficial/copilot-workflow/releases/tag/yunluo-miui14-build5-complete-firmware), validates SHA-256 and produces **one fully assembled ZIP**, removing the temporary parts afterward. These are GitHub Release assets, not expiring Actions artifacts.
+
+On Linux (from the folder where you want the full ZIP), download the v1.0 release's `download-v1.0-full-firmware.sh` and run:
+
+```bash
+bash download-v1.0-full-firmware.sh
+```
+
+**Redmi Pad yunluo only. Unlocked bootloader required. Never use `flash_all_lock.sh` or relock the bootloader. Stock `flash_all.sh` can erase user data. Back up before flashing.**
+
+---
+
+## Archived development and inventory notes
+
+The following describes the project's original Phase 1 and is retained for historical reference. For current release information, follow the final v1.0 changelog above.
+
 # Redmi-Pad-Yunluo-Miui-Project
 
 **Community-maintained debloated fastboot firmware for Xiaomi Redmi Pad (codename: `yunluo`).**
