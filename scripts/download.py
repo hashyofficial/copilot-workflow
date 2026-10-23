@@ -23,9 +23,9 @@ CDNS = [
     ("Xiaomi BN", "bn.d.miui.com"),
     ("Xiaomi BIGOTA", "bigota.d.miui.com"),
 ]
-PROBE_SIZE = 524288   # 512 KiB; do not download the full file during a probe
-PROBE_TIMEOUT = 18
-MIN_PROBE_RATE = 400 * 1024  # 400 KiB/s; reject multi-day transfers
+PROBE_SIZE = 262144   # 256 KiB, only to confirm range support and approximate responsiveness
+PROBE_TIMEOUT = 9
+MIN_FULL_RATE = 3 * 1024 * 1024  # 3 MiB/s measured after parallel transfer starts
 
 def url(host):
     return f"https://{host}/{VERSION}/{FILENAME}"
@@ -95,6 +95,8 @@ def download_one(source, output):
         started = time.monotonic()
         last_bytes = 0
         last_progress = started
+        rate_window_start = started
+        rate_window_bytes = 0
         while proc.poll() is None:
             time.sleep(10)
             written = written_bytes(proc.pid, output)
@@ -102,6 +104,17 @@ def download_one(source, output):
             if written > last_bytes:
                 last_bytes = written
                 last_progress = now
+            if now - rate_window_start >= 30:
+                sustained_rate = max(0, written - rate_window_bytes) / (now - rate_window_start)
+                print(f"Parallel transfer measured at {sustained_rate / 1048576:.1f} MiB/s",flush=True)
+                if sustained_rate < MIN_FULL_RATE:
+                    print("Full-transfer speed below 3 MiB/s: switching CDN.",flush=True)
+                    proc.terminate()
+                    try:proc.wait(timeout=8)
+                    except subprocess.TimeoutExpired:proc.kill();proc.wait()
+                    return False
+                rate_window_start = now
+                rate_window_bytes = written
             if now - last_progress > 90:
                 print("No disk writes in 90s: switching CDN.",flush=True)
                 proc.terminate()
@@ -127,7 +140,7 @@ def main():
     ap.add_argument("--report",required=True,type=Path)
     args=ap.parse_args()
     args.report.parent.mkdir(parents=True,exist_ok=True)
-    print("Testing 512-KiB HTTP range speed from GitHub runner against 5 CDNs...",flush=True)
+    print("Testing 256-KiB HTTP range support against 5 CDNs...",flush=True)
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(CDNS)) as ex:
         tests=list(ex.map(probe,CDNS))
     tests.sort(key=lambda t:t["rate_bytes_sec"],reverse=True)
@@ -135,10 +148,13 @@ def main():
         print(f"{t['label']}: {t['status']}, {t['rate_bytes_sec']/1048576:.2f} MiB/s, "
               f"{t['probe_seconds']}s; {t['error']}",flush=True)
     args.report.write_text(json.dumps({"probe_results":tests},indent=2)+"\n")
-    healthy=[t for t in tests if t["ok"] and t["rate_bytes_sec"] >= MIN_PROBE_RATE]
+    healthy=[t for t in tests if t["ok"]]
     if not healthy:
-        raise RuntimeError("All CDNs failed a 512-KiB range probe or were below 400 KiB/s. "
-                           "No multi-gigabyte download attempted; see download-sources.json.")
+        raise RuntimeError("No CDN supported a valid HTTP byte-range probe; "
+                           "no multi-gigabyte download attempted. See download-sources.json.")
+    # Historical full-ROM downloads on this runner succeeded at 53-323 MiB/s
+    # on CDNORG even when tiny probes reported <0.2 MiB/s.
+    healthy.sort(key=lambda t:(t["host"]=="cdnorg.d.miui.com",t["rate_bytes_sec"]),reverse=True)
     for candidate in healthy:
         # Never trust a partial archive from a different server.
         args.output.unlink(missing_ok=True)
