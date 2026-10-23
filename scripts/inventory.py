@@ -129,7 +129,7 @@ def inspect():
         for slot,part in parts:
             out=TMP/"unpacked";out.mkdir(exist_ok=True)
             try:
-                r=command(TOOLS/"lpunpack","-S",slot,"-p",part,superfile,out)
+                r=command(TOOLS/"lpunpack",f"--slot={slot}",f"--partition={part}",superfile,out)
                 if r.returncode:raise RuntimeError("lpunpack: "+r.stderr)
                 image=out/(part+".img")
                 if not image.is_file():raise RuntimeError("lpunpack did not create "+str(image))
