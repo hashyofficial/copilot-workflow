@@ -302,7 +302,58 @@ def preflight():
         desc_rows=[]
         sizes={part:count for part,_,_,count in filesystem_rows}
         for part,slot,typ,count in filesystem_rows:
-            base=re.sub(r'_[ab]$','',part)
+            if part.endswith('_b'):
+                desc_rows.append((part,'inactive B slot: no A-slot bounds comparison','','','',count,'NOT_ASSESSED'))
+                continue
+            base=re.sub(r'_[ab]
+            if base in hashtrees:
+                owner,desc=hashtrees[base]
+                tree_end=desc.get('tree_offset',0)+desc.get('tree_size',0)
+                valid=desc.get('image_size',count)<=count and tree_end<=count
+                desc_rows.append((part,owner,desc.get('image_size',''),desc.get('tree_offset',''),
+                                  desc.get('tree_size',''),count,'PASS' if valid else 'FAIL'))
+                if not valid:problems.append('AVB hashtree exceeds '+part+' logical partition')
+            else:
+                desc_rows.append((part,'NOT_FOUND','','','',count,'CHECK'))
+                warnings.append('AVB descriptor not found for '+part+' (could be non-verified)')
+        tsv('avb-image-bounds.tsv',
+            ('logical_partition','vbmeta_owner','payload_bytes','tree_offset','tree_bytes','partition_bytes','bounds'),desc_rows)
+        if len(full_apks)<250:problems.append('Suspiciously few APKs discovered: '+str(len(full_apks)))
+        if len(snapshots)<1000:problems.append('Suspiciously small metadata baseline')
+        if len(populated)!=8:problems.append('Unexpected populated logical partition count: '+str(len(populated)))
+        for entry in avb:
+            if entry['flags']!=0:warnings.append('Original vbmeta flags not zero: '+entry['image'])
+        emit('blockers.txt','\n'.join(problems)+'\n' if problems else 'No structural/manifest preflight blockers detected.\n')
+        emit('review-warnings.txt','\n'.join(warnings)+'\n' if warnings else 'No config reference warnings detected.\n')
+        report=['# Combined MIUI 14 preflight (read-only)','',
+                'Firmware: '+VER+' (MD5 matched)',
+                'Selected candidate APKs: 33 (no removals performed)',
+                'Populated partitions scanned: '+str(len(populated)),
+                'APK manifests scanned: '+str(len(full_apks)),
+                'Metadata baseline records: '+str(len(snapshots)),
+                'Config cross-references: '+str(len(refs)),
+                'AVB metadata images parsed: '+str(len(avb)),
+                'Structural errors: '+str(len(problems)),
+                'Review warnings: '+str(len(warnings)),'',
+                '**FLASH READINESS: NOT APPROVED.** Existing AVB flags are zero and',
+                'stock hashtrees cover the intended partitions. No rebuilding, disabling',
+                'verified boot, repackaging, or flashing occurs in this job.','',
+                'The source metadata baseline does not prove reconstructed EROFS equivalence.',
+                'A future rebuild must be mounted and compared path-by-path against this baseline',
+                'for all retained entries, including labels, xattrs, symlinks, owners and modes.',
+                'Even an error-free preflight cannot guarantee a first boot.','',
+                'Review first-pass-33-review.tsv, config-references.tsv,',
+                'avb-image-bounds.tsv and blockers.txt before any build.']
+        emit('SUMMARY.md','\n'.join(report)+'\n')
+        emit('status.json',json.dumps({'download_verified':True,'manifest_count':len(full_apks),
+            'candidates':len(candidate_packages),'preflight_blockers':problems,
+            'warnings':warnings,'flash_ready':False,'firmware_modified':False},indent=2)+'\n')
+        print('\n'.join(report),flush=True)
+        if problems:raise RuntimeError('Combined preflight has '+str(len(problems))+' blocking issues. See uploaded artifact.')
+
+if __name__=='__main__':
+    preflight()
+,'',part)
             if base in hashtrees:
                 owner,desc=hashtrees[base]
                 tree_end=desc.get('tree_offset',0)+desc.get('tree_size',0)
