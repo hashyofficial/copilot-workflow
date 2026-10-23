@@ -1,0 +1,52 @@
+name: Redmi Pad Build 3 — fresh stock, 93 dedicated folders
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/super-build3.yml
+
+permissions:
+  contents: read
+
+jobs:
+  build-super-from-fresh-stock:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Build 3 requests, source paths and Python
+        run: |
+          python3 -m py_compile scripts/pack_super_build3.py scripts/pack_super_build2.py scripts/erofs_trial.py
+          python3 -m unittest discover -s tests -p 'test_*.py' -v
+          python3 -c "import sys;sys.path.insert(0,'scripts');from pack_super_build3 import build3_targets;t,p,k=build3_targets();assert len(t)==93 and len(p)==69 and len(k)==3;print('Build 3:',len(t),'folders, preserved:',len(k))"
+          df -h /tmp
+      - name: Install pinned Android and EROFS tooling
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq aria2 curl ca-certificates erofs-utils attr util-linux file python3
+          python3 scripts/inventory.py --install-tools
+      - name: Build entirely from original Xiaomi ROM and verify three protected packages
+        run: sudo --preserve-env=GITHUB_WORKSPACE,ANDROID_HOME python3 scripts/pack_super_build3.py
+      - name: Transfer results permissions
+        if: always()
+        run: |
+          sudo chown -R "$(id -u):$(id -g)" build3-super-artifact reports-build3 2>/dev/null || true
+      - name: Upload Build 3 candidate image parts and checksums
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: yunluo-build3-fresh-stock-93-folders-super
+          path: build3-super-artifact/
+          compression-level: 0
+          retention-days: 14
+          if-no-files-found: error
+      - name: Upload Build 3 verification report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: yunluo-build3-93-folders-validation
+          path: reports-build3/
+          retention-days: 30
+          if-no-files-found: warn
