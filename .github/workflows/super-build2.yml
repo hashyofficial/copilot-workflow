@@ -1,0 +1,52 @@
+name: Redmi Pad Build 2 — fresh stock ROM, 66 whole folders
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/super-build2.yml
+
+permissions:
+  contents: read
+
+jobs:
+  build-super-from-original-miui:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Build 2 allowlist and original firmware build scripts
+        run: |
+          python3 -m py_compile scripts/pack_super_build2.py scripts/erofs_trial.py scripts/download.py
+          python3 -m unittest discover -s tests -p 'test_*.py' -v
+          python3 -c "import sys;sys.path.insert(0,'scripts');from pack_super_build2 import build2_targets;t,p=build2_targets();assert len(t)==66 and len(p)==42;print('Build 2:',len(t),'whole app directories')"
+          df -h /tmp
+      - name: Install Android sparse/LP and EROFS tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq aria2 curl ca-certificates erofs-utils attr util-linux file python3
+          python3 scripts/inventory.py --install-tools
+      - name: Download CLEAN firmware and rebuild all three target partitions
+        run: sudo --preserve-env=GITHUB_WORKSPACE,ANDROID_HOME python3 scripts/pack_super_build2.py
+      - name: Transfer results permissions
+        if: always()
+        run: |
+          sudo chown -R "$(id -u):$(id -g)" build2-super-artifact reports-build2 2>/dev/null || true
+      - name: Upload Build 2 full sparse super image parts and SHA256 manifest
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: yunluo-build2-super-sparse-66-folders
+          path: build2-super-artifact/
+          compression-level: 0
+          retention-days: 14
+          if-no-files-found: error
+      - name: Upload Build 2 validation results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: yunluo-build2-fresh-stock-validation
+          path: reports-build2/
+          retention-days: 30
+          if-no-files-found: warn
