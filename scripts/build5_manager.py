@@ -12,7 +12,7 @@ from erofs_trial import compare_trees,tree_map
 from inventory import sha
 
 GALLERY_LOCATION="product_a:/priv-app/Gallery_T_Global/Gallery_T_Global.apk"
-MANAGER_PATH="/system/app/KernelSUNextSpoofed/KernelSUNextSpoofed.apk"
+MANAGER_PATH="/system/app/Photos/com.google.app.photos.apk"
 MANAGER_PACKAGE="kqvdie.zeykvw.hpbcyd"
 MANAGER_VERSION="v3.4.2-spoofed"
 MANAGER_SHA256="e27ad21204e8f58a4268c41725de97341c62a2f4acca7fa4dda256e9d7863d01"
