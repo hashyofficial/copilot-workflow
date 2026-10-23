@@ -12,7 +12,7 @@ Sources: https://xmfirmwareupdater.com/miui/yunluo/stable/V14.0.4.0.TLYMIXM/ and
 
 ## Run Phase 1
 
-Go to **Actions → Redmi Pad APK inventory → Run workflow**. The workflow downloads and verifies the vendor ROM, enumerates **every archive member** with sizes, extracts the super image and relevant *small* flashing metadata, records flash scripts and their references to `super`, detects Android sparse versus raw, captures both LP metadata slots, unpacks logical partitions *one at a time*, probes their actual filesystem type, mounts them read-only, and inventories all APKs. No device is connected.
+Go to **Actions → Redmi Pad APK inventory → Run workflow**. Before the firmware download, the job only runs Python syntax and disk availability checks (no mass deletion of preinstalled SDKs). The workflow benchmarks short byte-range responses from Azure CDN, Singapore Alibaba OSS, Xiaomi CDNORG, Xiaomi BN, and Xiaomi BIGOTA, then downloads from the fastest responsive server using segmented aria2 transfers. A source under 400 KiB/s fails the benchmark, avoiding a multi-day download. The workflow downloads and verifies the vendor ROM, enumerates **every archive member** with sizes, extracts the super image and relevant *small* flashing metadata, records flash scripts and their references to `super`, detects Android sparse versus raw, captures both LP metadata slots, unpacks logical partitions *one at a time*, probes their actual filesystem type, mounts them read-only, and inventories all APKs. No device is connected.
 
 The workflow uploads `yunluo-miui14-inventory` with:
 - `apks.txt`: exact `<logical partition>:/<path>` locations, one per line.
@@ -22,8 +22,9 @@ The workflow uploads `yunluo-miui14-inventory` with:
 - `flashing-clues.txt`: extracts from Xiaomi flash scripts and other small configs.
 - `lpdump-slot0.txt` and `lpdump-slot1.txt`: logical-partition layouts, groups, extents, sizes, slot metadata.
 - `super-source.txt`, `tools.txt`, `checksums.txt`, `warnings.txt`.
+- `download-sources.json`: per-CDN probe throughput, status, selected source (when successful).
 
-Only text reports are uploaded. **The proprietary firmware and partition images stay off GitHub artifacts**. The workflow uses Ubuntu GitHub-hosted runners, whose disk is limited; large work may require a self-hosted runner with ≥40 GiB free. It deletes temporary data at each stage.
+Only text reports are uploaded. **The proprietary firmware and partition images stay off GitHub artifacts**. The workflow uses Ubuntu GitHub-hosted runners, whose disk is limited; large work may require a self-hosted runner with ≥40 GiB free. It deletes partition extraction buffers after each logical partition, but never performs slow blanket SDK cleanup.
 
 ## Before Phase 2 (modification)
 
@@ -45,4 +46,4 @@ Phase 2 is intentionally blocked until the *actual* super layout, EROFS/ext4 for
 
 `simg2img`, `lpunpack`, `lpdump` are Android partition tools. The workflow fetches the fixed `36.0.1` release of https://github.com/meator/android-tools-static and checks each release artifact's published SHA256 digest. Read-only image detection is performed with `blkid`/`file`; Linux kernel handles ext4 / EROFS mounts. `erofs-utils`, `e2fsprogs`, `attr`, and `util-linux` are installed for diagnosis. Future builds will need `lpmake`, `mkfs.erofs` or ext4 creation tools **only after** the real filesystem has been confirmed.
 
-The firmware is fetched at run time; it is not downloaded/inspected from within this chat. If the Xiaomi CDN URL is unavailable, this workflow fails instead of silently selecting a different ROM.
+The firmware is fetched at run time; it is not downloaded/inspected from within this chat. The alternate servers use the same Xiaomi firmware path, not a different ROM version. The full archive must pass the pinned MD5 check before inspection. A 512-KiB range benchmark is only a short performance sample, not a guarantee of sustained download rate. Standard GitHub-hosted Ubuntu runners cannot be placed in Singapore just by setting a workflow property; faster local CDN access is determined from the runner's network. If all candidates are slow or unavailable, the workflow fails fast with a report instead of hanging for hours.
