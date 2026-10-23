@@ -1,0 +1,26 @@
+name: Diagnose Build 5 workflow YAML
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/build5-yaml-check.yml
+permissions:
+  contents: read
+jobs:
+  parse:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse Build 5 yaml and Python code
+        run: |
+          ruby - <<'RB'
+          require 'yaml'
+          file='.github/workflows/build5-full-firmware.yml'
+          begin
+            YAML.parse_file(file)
+            puts "Build5 workflow YAML syntax valid"
+          rescue => e
+            abort "Build5 workflow YAML invalid: #{e.message}"
+          end
+          RB
+          python3 -m py_compile scripts/build5_manager.py scripts/pack_super_build5.py scripts/repack_build5_fastboot.py
