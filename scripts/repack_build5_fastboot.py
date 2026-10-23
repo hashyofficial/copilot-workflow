@@ -164,11 +164,8 @@ def verify_parts(folder):
     manifest=json.loads((folder/"manifest.json").read_text())
     if manifest.get("model")!="yunluo" or manifest.get("slot")!="a" or manifest.get("build")!="5-experimental":fail("Wrong Build 5 source")
     if manifest.get("total_directories_removed")!=108 or manifest.get("build5_additional_directories_removed")!=1 or not manifest.get("lp_metadata_preserved") or not manifest.get("other_regions_unchanged"):fail("Unverified Build 5 image")
-    manager=manifest.get("kernel_su_next_manager") or {}
-    if (manager.get("apk_sha256")!="e27ad21204e8f58a4268c41725de97341c62a2f4acca7fa4dda256e9d7863d01" or
-        manager.get("android_package_id")!="kqvdie.zeykvw.hpbcyd" or
-        manager.get("image_path")!="/system/app/Photos/com.google.app.photos.apk"):
-        fail("Signed KernelSU Next APK was not independently verified in Build 5")
+    if manifest.get("additional_apks_installed")!=0 or "kernel_su_next_manager" in manifest:
+        fail("Build 5 must not install any extra APK")
     gallery="product_a:/priv-app/Gallery_T_Global/Gallery_T_Global.apk"
     if gallery not in [d["location"] for d in manifest.get("excluded_folders",[])]:
         fail("Gallery removal not listed in Build 5 manifest")
@@ -274,7 +271,7 @@ def main():
         a.zip.parent.mkdir(parents=True,exist_ok=True)
         tmp.rename(a.zip)
         out={
-          "model":"yunluo","build":"Build 5 Experimental, 108 entire folders removed; signed KernelSU Next manager preinstalled",
+          "model":"yunluo","build":"Build 5 Experimental, 108 entire folders removed; no injected APK",
           "status":"offline_verified_not_full_package_flash_tested",
           "original_rom_md5":MD5,"firmware_zip_filename":a.zip.name,
           "firmware_zip_sha256":hash_file(a.zip),"firmware_zip_bytes":a.zip.stat().st_size,
@@ -284,8 +281,7 @@ def main():
           "flash_all_sh_preserved":True,"scatter_txt_xml_preserved":True,
           "vbmeta_system_vendor_img_stock_unchanged":True,
           "super_sha256":SUPER_SHA,"super_raw_size_bytes":RAW_BYTES,
-          "gallery_removed":True,"kernel_su_manager_version":"v3.4.2-spoofed",
-          "kernel_su_manager_apk_sha256":"e27ad21204e8f58a4268c41725de97341c62a2f4acca7fa4dda256e9d7863d01",
+          "gallery_removed":True,"added_apks":0,
           "vbmeta_patched_sha256":hashlib.sha256(patched).hexdigest(),"vbmeta_flags":3,
           "vbmeta_original_signature_valid_after_patch":False,
           "notes":["UNLOCKED BOOTLOADER REQUIRED","DO NOT USE flash_all_lock.sh or flash_all_lock.bat",
