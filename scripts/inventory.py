@@ -90,7 +90,8 @@ def inspect():
     apks=set();rows=["partition\tpath\tuid\tgid\tmode\tbytes\tselinux_xattr"]
     fss=["partition\tfilesystem\timage_bytes\tmetadata_slot"];errors=[]
     try:
-        subprocess.run(["curl","-fL","--retry","4","--retry-delay","10","--connect-timeout","30","-o",str(archive),URL],check=True)
+        subprocess.run(["python3", str(ROOT/"scripts/download.py"), "--output", str(archive),
+                        "--report", str(OUT/"download-sources.json")], check=True)
         md5=sha(archive,"md5")
         write("checksums.txt",f"URL: {URL}\nExpected MD5: {MD5}\nActual MD5: {md5}\n")
         if md5!=MD5:raise RuntimeError("Firmware MD5 mismatch")
