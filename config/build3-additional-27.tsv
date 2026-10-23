@@ -1,0 +1,30 @@
+# New Build 3 whole-folder targets from user-supplied device package paths.
+# Preserve exactly three requested packages: Provision, StatementService, LPPeService.
+# package ID<TAB>fresh stock firmware partition:/absolute/APK
+com.google.android.gms.supervision	product_a:/priv-app/FamilyLinkParentalControls/FamilyLinkParentalControls.apk
+com.google.android.apps.safetyhub	product_a:/priv-app/PersonalSafety/PersonalSafety.apk
+com.google.android.apps.wellbeing	product_a:/priv-app/Wellbeing/Wellbeing.apk
+com.android.carrierdefaultapp	system_a:/system/app/CarrierDefaultApp/CarrierDefaultApp.apk
+com.mediatek.mdmconfig	system_a:/system/app/MDMConfig/MDMConfig.apk
+com.mediatek.op01.telecom	system_a:/system/app/OP01Telecom/OP01Telecom.apk
+com.mediatek.op01.phone.plugin	system_a:/system/app/OP01TeleService/OP01TeleService.apk
+com.mediatek.op09clib.telecom	system_a:/system/app/OP09ClibTelecom/OP09ClibTelecom.apk
+com.mediatek.op09clib.phone.plugin	system_a:/system/app/OP09ClibTeleService/OP09ClibTeleService.apk
+com.android.simappdialog	system_a:/system/app/SimAppDialog/SimAppDialog.apk
+com.android.providers.blockednumber	system_a:/system/priv-app/BlockedNumberProvider/BlockedNumberProvider.apk
+com.android.calllogbackup	system_a:/system/priv-app/CallLogBackup/CallLogBackup.apk
+com.mediatek.callrecorder	system_a:/system/priv-app/CallRecorderService/CallRecorderService.apk
+com.android.cellbroadcastreceiver	system_a:/system/priv-app/CellBroadcastLegacyApp/CellBroadcastLegacyApp.apk
+com.android.providers.contacts	system_a:/system/priv-app/ContactsProvider/ContactsProvider.apk
+com.android.localtransport	system_a:/system/priv-app/LocalTransport/LocalTransport.apk
+com.mediatek.capctrl.service	system_a:/system/priv-app/MtkCapCtrl/MtkCapCtrl.apk
+com.mediatek.gbaservice	system_a:/system/priv-app/MtkGbaService/MtkGbaService.apk
+com.android.mms.service	system_a:/system/priv-app/MtkMmsService/MtkMmsService.apk
+com.android.server.telecom	system_a:/system/priv-app/MtkTelecom/MtkTelecom.apk
+com.mediatek.telephony	system_a:/system/priv-app/MtkTelephonyAssist/MtkTelephonyAssist.apk
+com.android.providers.telephony	system_a:/system/priv-app/MtkTelephonyProvider/MtkTelephonyProvider.apk
+com.android.phone	system_a:/system/priv-app/MtkTeleService/MtkTeleService.apk
+com.mediatek.smartratswitch.service	system_a:/system/priv-app/SmartRatSwitch/SmartRatSwitch.apk
+com.android.providers.userdictionary	system_a:/system/priv-app/UserDictionaryProvider/UserDictionaryProvider.apk
+com.miui.freeform	system_ext_a:/priv-app/MiuiFreeformService/MiuiFreeformService.apk
+com.android.carrierconfig	system_ext_a:/priv-app/MtkCarrierConfig/MtkCarrierConfig.apk
