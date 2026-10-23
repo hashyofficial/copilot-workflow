@@ -1,0 +1,39 @@
+name: Build 5 APK preflight — official KernelSU Next spoofed manager
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/build5-apk-preflight.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate-official-manager:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Retrieve and checksum official spoofed APK
+        run: |
+          set -euo pipefail
+          URI="https://github.com/KernelSU-Next/KernelSU-Next/releases/download/v3.4.2/KernelSU_Next_v3.4.2-spoofed_33355-release.apk"
+          curl --fail --location --retry 6 --retry-all-errors --retry-delay 4 \
+            --output "$RUNNER_TEMP/KernelSUNextSpoofed.apk" "$URI"
+          echo "e27ad21204e8f58a4268c41725de97341c62a2f4acca7fa4dda256e9d7863d01  $RUNNER_TEMP/KernelSUNextSpoofed.apk" | sha256sum -c -
+          test "$(stat -c '%s' "$RUNNER_TEMP/KernelSUNextSpoofed.apk")" = 16684355
+          python3 - "$RUNNER_TEMP/KernelSUNextSpoofed.apk" <<'PY'
+          import sys,zipfile
+          with zipfile.ZipFile(sys.argv[1]) as z:
+              if z.testzip() is not None or "AndroidManifest.xml" not in z.namelist():
+                  raise SystemExit("Invalid APK ZIP or manifest")
+              print("APK ZIP structure and AndroidManifest.xml verified")
+          PY
+      - name: Confirm Android package identity and APK cryptographic signature
+        run: |
+          set -euo pipefail
+          ls -la /usr/local/lib/android/sdk/build-tools/ 2>/dev/null || true
+          AAPT="$(find "${ANDROID_HOME:-/usr/local/lib/android/sdk}/build-tools" -name aapt -type f | sort -V | tail -1)"
+          SIGNER="$(find "${ANDROID_HOME:-/usr/local/lib/android/sdk}/build-tools" -name apksigner -type f | sort -V | tail -1)"
+          test -x "$AAPT" && test -x "$SIGNER"
+          "$AAPT" dump badging "$RUNNER_TEMP/KernelSUNextSpoofed.apk" | grep -E "^(package:|sdkVersion:|targetSdkVersion:|native-code:)" | head -10
+          "$SIGNER" verify --verbose "$RUNNER_TEMP/KernelSUNextSpoofed.apk"
+          echo "Official signed spoofed manager passes signature verification"
