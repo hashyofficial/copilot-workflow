@@ -166,6 +166,9 @@ def scan_image(slot,part,superraw,aapt,targets,full_apks,config_texts,
         dump=command('dump.erofs','-s',image)
         erofs_logs.append('=== '+part+' ===\n'+dump.stdout+'\n'+dump.stderr)
         if dump.returncode:problems.append('dump.erofs failed for '+part)
+        fscheck=command('fsck.erofs',image)
+        erofs_logs.append('=== fsck.erofs '+part+' (exit '+str(fscheck.returncode)+') ===\n'+fscheck.stdout+'\n'+fscheck.stderr)
+        if fscheck.returncode:problems.append('Read-only EROFS fsck failed for '+part)
         mounted=False
         try:
             result=command('mount','-t','erofs','-o','ro,loop',image,mount)
