@@ -17,10 +17,10 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
-      BUILD5_STOCK_ARCHIVE: ${{ runner.temp }}/stock/yunluo_global_images_V14.0.4.0.TLYMIXM_20231207.0000.00_13.0_global_4003dcb1a4.tgz
-      BUILD5_MANAGER_APK: ${{ runner.temp }}/stock/KernelSUNextSpoofed.apk
-      BUILD5_PRIVATE: ${{ runner.temp }}/private-build5-super-NOT-UPLOADED
-      BUILD5_REPORTS: ${{ runner.temp }}/build5-report
+      BUILD5_STOCK_ARCHIVE: ${{ github.workspace }}/.build5-work/stock/yunluo_global_images_V14.0.4.0.TLYMIXM_20231207.0000.00_13.0_global_4003dcb1a4.tgz
+      BUILD5_MANAGER_APK: ${{ github.workspace }}/.build5-work/stock/KernelSUNextSpoofed.apk
+      BUILD5_PRIVATE: ${{ github.workspace }}/.build5-work/private-super-NOT-UPLOADED
+      BUILD5_REPORTS: ${{ github.workspace }}/.build5-work/report
       ROM_NAME: yunluo_MIUI14_Global_Build5_108Folders_KernelSUNext_AVBDisabled_Fastboot.zip
       ROM_RELEASE: yunluo-miui14-build5-complete-firmware
     steps:
@@ -47,7 +47,7 @@ jobs:
       - name: Download official v3.4.2 spoofed KernelSU Next manager; check signature, hash and package
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/stock"
+          mkdir -p "$(dirname "$BUILD5_MANAGER_APK")"
           curl --fail --location --retry 8 --retry-all-errors --retry-delay 5 \
             -o "$BUILD5_MANAGER_APK" \
             "https://github.com/KernelSU-Next/KernelSU-Next/releases/download/v3.4.2/KernelSU_Next_v3.4.2-spoofed_33355-release.apk"
@@ -162,7 +162,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: yunluo-build5-full-firmware-offline-verification
-          path: ${{ runner.temp }}/build5-report/
+          path: ${{ github.workspace }}/.build5-work/report/
           retention-days: 30
           if-no-files-found: warn
       - name: Confirm full-firmware release assets
