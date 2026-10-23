@@ -1,0 +1,26 @@
+name: Redmi Pad APK inventory
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inventory:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install image inspection tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq curl ca-certificates erofs-utils e2fsprogs attr util-linux file python3
+          python3 scripts/inventory.py --install-tools
+      - name: Download and inspect official MIUI 14 Global fastboot ROM
+        run: sudo --preserve-env=GITHUB_WORKSPACE python3 scripts/inventory.py --inspect
+      - name: Upload reports (no firmware images)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: yunluo-miui14-inventory
+          path: reports/
+          if-no-files-found: warn
+          retention-days: 30
