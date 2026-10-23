@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - .github/workflows/erofs-trial.yml
+      - scripts/erofs_trial.py
+      - tests/test_erofs_trial.py
 permissions:
   contents: read
 
