@@ -1,0 +1,40 @@
+name: Redmi Pad cryptographic AVB build check
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/avb-rebuild-check.yml
+permissions:
+  contents: read
+jobs:
+  verify-original-and-rebuilt:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check script and tools
+        run: |
+          python3 -m py_compile scripts/avb_rebuild_verify.py
+          python3 -m py_compile scripts/erofs_trial.py scripts/vbmeta_audit.py
+          df -h /tmp
+      - name: Install verified Android tooling and AOSP avbtool
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq aria2 curl ca-certificates erofs-utils attr util-linux file python3
+          python3 scripts/inventory.py --install-tools
+          curl -fsSL --retry 3 'https://android.googlesource.com/platform/external/avb/+/refs/tags/android-13.0.0_r83/avbtool.py?format=TEXT' -o /tmp/avbtool.b64
+          base64 --decode /tmp/avbtool.b64 > /tmp/avbtool.py
+          python3 -m py_compile /tmp/avbtool.py
+          sha256sum /tmp/avbtool.py
+          echo AVBTOOL_PATH=/tmp/avbtool.py >> "$GITHUB_ENV"
+      - name: Cryptographically validate stock AVB then test both 24-app rebuilt partitions
+        run: sudo --preserve-env=GITHUB_WORKSPACE,ANDROID_HOME,AVBTOOL_PATH python3 scripts/avb_rebuild_verify.py
+      - name: Upload AVB pass-fail reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: yunluo-miui14-avb-cryptographic-check
+          path: reports-avb-rebuilt/
+          retention-days: 30
+          if-no-files-found: warn
