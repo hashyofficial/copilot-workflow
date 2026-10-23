@@ -45,6 +45,25 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq aria2 curl ca-certificates erofs-utils attr util-linux file python3 unzip
           python3 scripts/inventory.py --install-tools
+      - name: Verify EROFS plus OverlayFS staging retains original symlink modes
+        run: |
+          set -euo pipefail
+          TMP="$(mktemp -d)"
+          mkdir -p "$TMP"/{source,lower,upper,work,merged}
+          echo original > "$TMP/source/file"
+          ln -s file "$TMP/source/link"
+          mkfs.erofs -T 1700000000 "$TMP/test.erofs" "$TMP/source"
+          sudo mount -t erofs -o ro,loop "$TMP/test.erofs" "$TMP/lower"
+          sudo mount -t overlay overlay \
+            -o "lowerdir=$TMP/lower,upperdir=$TMP/upper,workdir=$TMP/work" "$TMP/merged"
+          test "$(stat -c '%a' "$TMP/lower/link")" = "$(stat -c '%a' "$TMP/merged/link")"
+          mkdir -p "$TMP/merged/newapp"
+          echo installed > "$TMP/merged/newapp/new.apk"
+          test "$(cat "$TMP/merged/file")" = original
+          test "$(cat "$TMP/merged/newapp/new.apk")" = installed
+          sudo umount "$TMP/merged"
+          sudo umount "$TMP/lower"
+          echo "Overlay staging preflight passed: lower EROFS metadata untouched"
       - name: Download official v3.4.2 spoofed KernelSU Next manager; check signature, hash and package
         run: |
           set -euo pipefail
