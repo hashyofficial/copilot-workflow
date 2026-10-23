@@ -1,0 +1,15 @@
+name: Build 4 firmware packaging runner preflight
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/build4-packaging-runner-check.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate-runner:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check GitHub runner availability
+        run: echo "GitHub Actions runner ready for the yunluo firmware packaging workflow"
