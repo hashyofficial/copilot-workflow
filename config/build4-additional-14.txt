@@ -1,0 +1,17 @@
+# Build 4: fourteen new dedicated application folders from ORIGINAL stock ROM inventory.
+# Cell Broadcast Service is expressly EXCLUDED and must remain untouched.
+# One stock super partition-qualified APK path per line. Its parent directory is removed.
+product_a:/app/MiLinkGlobal/MiLinkGlobal.apk
+product_a:/priv-app/MIUICloudBackupGlobal/MIUICloudBackupGlobal.apk
+system_ext_a:/priv-app/FindDevice/FindDevice.apk
+product_a:/app/MIUIFrequentPhrase/MIUIFrequentPhrase.apk
+product_a:/priv-app/MIShareGlobal/MIShareGlobal.apk
+product_a:/app/MIUIMiCloudSync/MIUIMiCloudSync.apk
+system_a:/system/app/MiuiAudioMonitor/MiuiAudioMonitor.apk
+product_a:/priv-app/MIServiceGlobalPad/MIServiceGlobalPad.apk
+system_a:/system/priv-app/Stk1/Stk1.apk
+system_a:/system/priv-app/ManagedProvisioning/ManagedProvisioning.apk
+product_a:/app/MIUIXiaomiAccountGlobal/MIUIXiaomiAccountGlobal.apk
+product_a:/app/MIUICloudServiceGlobal/MIUICloudServiceGlobal.apk
+product_a:/app/MIUIDeskClockPadGlobal/MIUIDeskClockPadGlobal.apk
+product_a:/app/MIUIVideoPlayer/MIUIVideoPlayer.apk
