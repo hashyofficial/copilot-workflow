@@ -1,0 +1,39 @@
+name: Redmi Pad 24-app EROFS trial (offline)
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/erofs-trial.yml
+permissions:
+  contents: read
+
+jobs:
+  erofs-trial:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate scripts and 24-app policy before touching firmware
+        run: |
+          python3 -m py_compile scripts/download.py scripts/inventory.py scripts/vbmeta_audit.py scripts/combined_preflight.py scripts/erofs_trial.py
+          python3 -m unittest discover -s tests -p 'test_*.py' -v
+          python3 -c "import sys; sys.path.insert(0,'scripts'); from erofs_trial import proposed; t,a=proposed();print('Trial:',len(t),'reviewed:',len(a))"
+          df -h /tmp
+      - name: Install pinned Android and EROFS tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq aria2 curl ca-certificates erofs-utils e2fsprogs attr util-linux file python3
+          python3 scripts/inventory.py --install-tools
+      - name: Prove complete directory exclusion and SELinux xattr preservation on a tiny fixture
+        run: sudo --preserve-env=GITHUB_WORKSPACE,ANDROID_HOME python3 scripts/erofs_trial.py --self-test
+      - name: Reconstruct product_a and system_a in isolated scratch space and compare retained file contents and metadata
+        run: sudo --preserve-env=GITHUB_WORKSPACE,ANDROID_HOME python3 scripts/erofs_trial.py
+      - name: Upload validation reports ONLY (never reconstructed EROFS binaries)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: yunluo-miui14-24-app-trial-reports
+          path: reports-trial/
+          if-no-files-found: warn
+          retention-days: 30
