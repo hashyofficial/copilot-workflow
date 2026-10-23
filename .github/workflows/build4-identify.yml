@@ -1,0 +1,40 @@
+name: Redmi Pad Build 4 — original ROM app and APEX identification
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/build4-identify.yml
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate stock-identification script
+        run: |
+          python3 -m py_compile scripts/build4_stock_identify.py
+          python3 -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Install Android and EROFS tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq aria2 curl ca-certificates erofs-utils attr util-linux file python3
+          python3 scripts/inventory.py --install-tools
+      - name: Verify clean ROM then map Build 4 apps and Cell Broadcast APEX
+        run: sudo --preserve-env=GITHUB_WORKSPACE,ANDROID_HOME python3 scripts/build4_stock_identify.py
+      - name: Transfer report ownership
+        if: always()
+        run: sudo chown -R "$(id -u):$(id -g)" reports-build4-preflight 2>/dev/null || true
+      - name: Publish exact source-location report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: yunluo-build4-original-rom-apk-identification
+          path: reports-build4-preflight/
+          retention-days: 30
+          if-no-files-found: warn
