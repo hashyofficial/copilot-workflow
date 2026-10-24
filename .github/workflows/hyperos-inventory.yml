@@ -1,0 +1,85 @@
+name: HyperOS 1 yunluo - Full stock APK names and destinations
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/hyperos-inventory.yml
+      - .github/workflows/hyperos/inventory_hyperos.py
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  stock-apk-inventory:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+      - name: Free Linux runner disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/powershell
+          df -h "$RUNNER_TEMP"
+      - name: Install stock image tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq aria2 erofs-utils e2fsprogs attr util-linux file
+          python3 scripts/inventory.py --install-tools
+      - name: Download HyperOS 1 Global and extract original super/vbmeta
+        env:
+          ROM_NAME: yunluo_global_images_OS1.0.9.0.ULYMIXM_20250416.0000.00_14.0_global_f8dbb84a10.tgz
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/hyperos" reports/hyperos-inventory
+          for host in cdnorg.d.miui.com bigota.d.miui.com bn.d.miui.com; do
+            echo "Trying Xiaomi server: $host"
+            if aria2c -c -x 12 -s 12 -k 2M --max-tries=2 --retry-wait=3 \
+              --dir "$RUNNER_TEMP/hyperos" --out "$ROM_NAME" \
+              "https://$host/OS1.0.9.0.ULYMIXM/$ROM_NAME"; then
+              break
+            fi
+            rm -f "$RUNNER_TEMP/hyperos/$ROM_NAME" "$RUNNER_TEMP/hyperos/$ROM_NAME.aria2"
+          done
+          test -s "$RUNNER_TEMP/hyperos/$ROM_NAME"
+          python3 .github/workflows/hyperos/preflight.py extract \
+            --archive "$RUNNER_TEMP/hyperos/$ROM_NAME" \
+            --work "$RUNNER_TEMP/hyperos/stock" \
+            --reports reports/hyperos-inventory
+          rm -f "$RUNNER_TEMP/hyperos/$ROM_NAME"
+          df -h "$RUNNER_TEMP"
+      - name: Enumerate EVERY original APK and partition destination
+        env:
+          HYPEROS_WORK: ${{ runner.temp }}/hyperos/stock
+          HYPEROS_REPORT: ${{ github.workspace }}/reports/hyperos-inventory
+          HYPEROS_TOOLS: ${{ github.workspace }}/.tools/android-tools-static
+        run: |
+          set -euo pipefail
+          sudo --preserve-env=HYPEROS_WORK,HYPEROS_REPORT,HYPEROS_TOOLS,ANDROID_HOME \
+            python3 .github/workflows/hyperos/inventory_hyperos.py
+          sudo chown -R "$(id -u):$(id -g)" reports/hyperos-inventory
+          cat reports/hyperos-inventory/SUMMARY.md
+      - name: Publish complete APK inventory in HyperOS project folder
+        if: success()
+        run: |
+          set -euo pipefail
+          mkdir -p .github/workflows/hyperos/results
+          cp reports/hyperos-inventory/APKS_ALL.tsv \
+             reports/hyperos-inventory/APKS_ALL.csv \
+             reports/hyperos-inventory/APKS_ALL.txt \
+             reports/hyperos-inventory/SUMMARY.md \
+             reports/hyperos-inventory/SUMMARY.json \
+             .github/workflows/hyperos/results/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/workflows/hyperos/results/
+          git commit -m "hyperos: publish full stock APK filenames and exact partitions"
+          git push origin HEAD:main
+      - name: Upload APK inventory (reports only, no images or firmware ZIP)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hyperos1-yunluo-all-apks-and-partition-destinations
+          path: reports/hyperos-inventory/
+          retention-days: 30
+          if-no-files-found: warn
