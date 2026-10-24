@@ -1,0 +1,44 @@
+name: HyperOS 1 - Publish completed APK inventory (reports only)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/publish-hyperos-inventory.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish-existing-inventory:
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: hashyofficial/copilot_workflow
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download the already-completed 336-APK report (no ROM rebuild)
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/hyperos-results" hyperos/results
+          gh run download 40095557360 -R "$GH_REPO" \
+            -n hyperos1-yunluo-all-apks-and-partition-destinations \
+            -D "$RUNNER_TEMP/hyperos-results"
+          test -s "$RUNNER_TEMP/hyperos-results/APKS_ALL.tsv"
+          test -s "$RUNNER_TEMP/hyperos-results/SUMMARY.json"
+          cp "$RUNNER_TEMP/hyperos-results/APKS_ALL.tsv" \
+             "$RUNNER_TEMP/hyperos-results/APKS_ALL.csv" \
+             "$RUNNER_TEMP/hyperos-results/APKS_ALL.txt" \
+             "$RUNNER_TEMP/hyperos-results/SUMMARY.json" \
+             "$RUNNER_TEMP/hyperos-results/SUMMARY.md" \
+             hyperos/results/
+      - name: Permanently commit inventory outside GitHub's protected workflow paths
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add hyperos/results/
+          git commit -m "hyperos: publish complete stock inventory of 336 APK files"
+          git push origin HEAD:main
