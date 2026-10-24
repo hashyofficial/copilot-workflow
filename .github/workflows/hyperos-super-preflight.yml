@@ -1,13 +1,31 @@
 name: HyperOS 1 yunluo - stock super and vbmeta preflight
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/hyperos-super-preflight.yml
+      - .github/workflows/hyperos/**
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
+  validate-hyperos:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify HyperOS preflight and offline regression fixtures
+        run: |
+          set -euo pipefail
+          python3 -m py_compile .github/workflows/hyperos/preflight.py .github/workflows/hyperos/test_preflight.py
+          python3 -m json.tool .github/workflows/hyperos/firmware.json > /dev/null
+          python3 -m unittest discover -s .github/workflows/hyperos -p 'test_*.py' -v
+
   hyperos-stock-inspection:
+    if: github.event_name == 'workflow_dispatch'
+    needs: validate-hyperos
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     steps:

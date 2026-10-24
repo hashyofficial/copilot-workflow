@@ -37,6 +37,27 @@ def execute(*argv):
         raise RuntimeError("Command failed: %s\n%s" % (" ".join(map(str, argv)), p.stderr[-2000:]))
     return p.stdout
 
+def parse_sparse_header(header):
+    if len(header) != 28:
+        raise ValueError("Truncated sparse header")
+    magic, major, minor, hsize, csize, block_size, blocks, chunks, checksum = struct.unpack("<I4H4I", header)
+    raw_size = blocks * block_size
+    if (magic, major, minor, hsize, csize) != (0xED26FF3A, 1, 0, 28, 12):
+        raise ValueError("Unrecognized stock super sparse format")
+    if block_size % 4096 or not 1024**3 < raw_size <= MAX_SUPER:
+        raise ValueError("Unexpected super logical size")
+    return {"raw_size": raw_size, "block_size": block_size, "chunks": chunks}
+
+
+def parse_vbmeta_header(header):
+    if len(header) < 256 or header[:4] != b"AVB0":
+        raise ValueError("Unexpected HyperOS vbmeta image format")
+    return {
+        "flags": struct.unpack_from(">I", header, 120)[0],
+        "algorithm": struct.unpack_from(">I", header, 28)[0],
+    }
+
+
 def extract(args):
     archive, work, reports = Path(args.archive), Path(args.work), Path(args.reports)
     if archive.name != ROM["archive_name"]:
@@ -90,14 +111,8 @@ def inspect(args):
         raise ValueError("Missing verified extraction - run extract first")
     with sparse.open("rb") as f:
         sparse_header = f.read(28)
-    if len(sparse_header) != 28:
-        raise ValueError("Truncated sparse header")
-    magic, major, minor, hsize, csize, block_size, blocks, chunks, checksum = struct.unpack("<I4H4I", sparse_header)
-    raw_size = blocks * block_size
-    if (magic, major, minor, hsize, csize) != (0xED26FF3A, 1, 0, 28, 12):
-        raise ValueError("Unrecognized stock super sparse format")
-    if block_size % 4096 or not 1024**3 < raw_size <= MAX_SUPER:
-        raise ValueError("Unexpected super logical size")
+    sparse_info = parse_sparse_header(sparse_header)
+    raw_size = sparse_info["raw_size"]
     if raw.exists():
         raise ValueError("Refusing to overwrite raw image")
     execute(tools / "simg2img", sparse, raw)
@@ -116,14 +131,13 @@ def inspect(args):
     if not expected.issubset(partitions["0"]):
         raise ValueError("HyperOS LP layout differs; inspect raw reports before rebuilding")
     header = vbmeta.read_bytes()
-    if len(header) < 256 or header[:4] != b"AVB0":
-        raise ValueError("Unexpected HyperOS vbmeta image format")
-    flags = struct.unpack_from(">I", header, 120)[0]
-    algo = struct.unpack_from(">I", header, 28)[0]
+    vbmeta_info = parse_vbmeta_header(header)
+    flags = vbmeta_info["flags"]
+    algo = vbmeta_info["algorithm"]
     report_json(reports / "03-image-audit.json", {
         "rom": ROM["os_version"], "stock_raw_super_sha256": digest(raw),
-        "raw_super_size": raw_size, "sparse_block_size": block_size,
-        "sparse_chunks": chunks, "partitions_by_slot": partitions,
+        "raw_super_size": raw_size, "sparse_block_size": sparse_info["block_size"],
+        "sparse_chunks": sparse_info["chunks"], "partitions_by_slot": partitions,
         "stock_vbmeta_sha256": digest(vbmeta), "vbmeta_bytes": len(header),
         "stock_vbmeta_avb0_flags": flags, "stock_vbmeta_avb0_algorithm": algo,
         "lp_metadata_preservation_not_yet_verified": True,
