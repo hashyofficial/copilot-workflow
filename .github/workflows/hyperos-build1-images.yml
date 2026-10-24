@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 240
     env:
-      HYPEROS_BUILD_WORK: ${{ runner.temp }}/hyperos-build
+      HYPEROS_BUILD_WORK: ${{ github.workspace }}/.hyperos-build/work
       HYPEROS_BUILD_RESULT: ${{ github.workspace }}/.hyperos-build/output
     steps:
       - uses: actions/checkout@v4
