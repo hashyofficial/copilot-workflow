@@ -1,0 +1,62 @@
+{
+  "device": "Redmi Pad (yunluo)",
+  "firmware": "OS1.0.9.0.ULYMIXM",
+  "android": 14,
+  "total_apk_files": 336,
+  "partition_counts": [
+    {
+      "partition": "odm_dlkm_a",
+      "slot": 0,
+      "filesystem": "erofs",
+      "apk_count": 0,
+      "image_bytes": 348160
+    },
+    {
+      "partition": "product_a",
+      "slot": 0,
+      "filesystem": "erofs",
+      "apk_count": 166,
+      "image_bytes": 2592829440
+    },
+    {
+      "partition": "system_a",
+      "slot": 0,
+      "filesystem": "erofs",
+      "apk_count": 76,
+      "image_bytes": 866062336
+    },
+    {
+      "partition": "system_ext_a",
+      "slot": 0,
+      "filesystem": "erofs",
+      "apk_count": 50,
+      "image_bytes": 689496064
+    },
+    {
+      "partition": "vendor_a",
+      "slot": 0,
+      "filesystem": "erofs",
+      "apk_count": 14,
+      "image_bytes": 1041645568
+    },
+    {
+      "partition": "vendor_dlkm_a",
+      "slot": 0,
+      "filesystem": "erofs",
+      "apk_count": 0,
+      "image_bytes": 11292672
+    },
+    {
+      "partition": "mi_ext_a",
+      "slot": 0,
+      "filesystem": "erofs",
+      "apk_count": 30,
+      "image_bytes": 555696128
+    }
+  ],
+  "package_id_resolved": 329,
+  "stock_super_raw_sha256": "965f791ef796d4346b4abf95fad216a90084ed869ef2b6fbae1993d5683c686c",
+  "stock_vbmeta_sha256": "cc34aa04532fc46f70558d0cd98bc4a4f008e9aa795ac9762cec220fd52c80a0",
+  "modified_images": 0,
+  "firmware_zip_created": false
+}
