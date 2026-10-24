@@ -1,0 +1,56 @@
+name: HyperOS 1 yunluo - stock super and vbmeta preflight
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  hyperos-stock-inspection:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate HyperOS scripts
+        run: |
+          python3 -m py_compile .github/workflows/hyperos/preflight.py
+          python3 -m json.tool .github/workflows/hyperos/firmware.json > /dev/null
+      - name: Free disk space for sparse-to-raw conversion
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /usr/local/share/powershell
+          df -h "$RUNNER_TEMP"
+      - name: Install audited Android image tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq aria2 erofs-utils
+          python3 scripts/inventory.py --install-tools
+      - name: Download and verify the original HyperOS Global firmware
+        env:
+          ROM_NAME: yunluo_global_images_OS1.0.9.0.ULYMIXM_20250416.0000.00_14.0_global_f8dbb84a10.tgz
+          ROM_URL: https://cdnorg.d.miui.com/OS1.0.9.0.ULYMIXM/yunluo_global_images_OS1.0.9.0.ULYMIXM_20250416.0000.00_14.0_global_f8dbb84a10.tgz
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/hyperos" reports/hyperos-preflight
+          aria2c -c -x 12 -s 12 -k 2M --max-tries=3 --retry-wait=5 \
+            --dir "$RUNNER_TEMP/hyperos" --out "$ROM_NAME" "$ROM_URL"
+          python3 .github/workflows/hyperos/preflight.py extract \
+            --archive "$RUNNER_TEMP/hyperos/$ROM_NAME" \
+            --work "$RUNNER_TEMP/hyperos/stock" --reports reports/hyperos-preflight
+          rm -f "$RUNNER_TEMP/hyperos/$ROM_NAME"
+          df -h "$RUNNER_TEMP"
+      - name: Audit stock super metadata and vbmeta AVB0
+        run: |
+          set -euo pipefail
+          python3 .github/workflows/hyperos/preflight.py inspect \
+            --work "$RUNNER_TEMP/hyperos/stock" \
+            --reports reports/hyperos-preflight --tools .tools/android-tools-static
+          cat reports/hyperos-preflight/03-image-audit.json
+      - name: Upload small audit reports only - no image binaries or ZIP
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hyperos1-yunluo-super-vbmeta-stock-audit
+          path: reports/hyperos-preflight/
+          retention-days: 30
+          if-no-files-found: warn
