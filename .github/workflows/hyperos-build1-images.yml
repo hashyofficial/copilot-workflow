@@ -1,0 +1,88 @@
+name: HyperOS 1 Build 1 - remove 131 user-selected APKs (super and vbmeta only)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/hyperos-build1-images.yml
+      - hyperos/config/Apps_Remove.txt
+      - hyperos/build_images.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-hyperos-super-vbmeta:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    env:
+      HYPEROS_BUILD_WORK: ${{ runner.temp }}/hyperos-build
+      HYPEROS_BUILD_RESULT: ${{ github.workspace }}/.hyperos-build/output
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare runner for original stock Android 14 super images
+        run: |
+          set -euo pipefail
+          python3 -m py_compile hyperos/build_images.py .github/workflows/hyperos/preflight.py
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/powershell
+          df -h "$RUNNER_TEMP"
+      - name: Install Android sparse, LP, and EROFS tools
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq aria2 erofs-utils e2fsprogs attr util-linux file
+          python3 scripts/inventory.py --install-tools
+      - name: Download original HyperOS 1 Global and verify MD5
+        env:
+          ROM_NAME: yunluo_global_images_OS1.0.9.0.ULYMIXM_20250416.0000.00_14.0_global_f8dbb84a10.tgz
+        run: |
+          set -euo pipefail
+          mkdir -p "$HYPEROS_BUILD_WORK" "$HYPEROS_BUILD_RESULT"
+          for host in cdnorg.d.miui.com bigota.d.miui.com bn.d.miui.com; do
+            echo "Downloading verified Xiaomi stock firmware from $host"
+            if aria2c -c -x 12 -s 12 -k 2M --max-tries=2 --retry-wait=3 \
+              --dir "$HYPEROS_BUILD_WORK" --out "$ROM_NAME" \
+              "https://$host/OS1.0.9.0.ULYMIXM/$ROM_NAME"; then
+              break
+            fi
+            rm -f "$HYPEROS_BUILD_WORK/$ROM_NAME" "$HYPEROS_BUILD_WORK/$ROM_NAME.aria2"
+          done
+          test -s "$HYPEROS_BUILD_WORK/$ROM_NAME"
+          python3 .github/workflows/hyperos/preflight.py extract \
+            --archive "$HYPEROS_BUILD_WORK/$ROM_NAME" \
+            --work "$HYPEROS_BUILD_WORK/stock" \
+            --reports "$HYPEROS_BUILD_RESULT/original-stock-report"
+          rm -f "$HYPEROS_BUILD_WORK/$ROM_NAME"
+          df -h "$RUNNER_TEMP"
+      - name: Rebuild HyperOS super.img (130 folders + one overlay APK) and patch vbmeta.img
+        run: |
+          set -euo pipefail
+          sudo --preserve-env=HYPEROS_BUILD_WORK,HYPEROS_BUILD_RESULT,GITHUB_WORKSPACE,ANDROID_HOME \
+            python3 hyperos/build_images.py
+          sudo chown -R "$(id -u):$(id -g)" "$HYPEROS_BUILD_RESULT"
+          cat "$HYPEROS_BUILD_RESULT/SUMMARY.md"
+      - name: Upload ONLY modified super.img parts and modified vbmeta.img (not ROM ZIP)
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: yunluo-hyperos1-build1-super-vbmeta-131-removals
+          path: |
+            .hyperos-build/output/super.img.part-*
+            .hyperos-build/output/vbmeta.img
+            .hyperos-build/output/MANIFEST.json
+            .hyperos-build/output/SUMMARY.md
+          compression-level: 0
+          retention-days: 14
+          if-no-files-found: error
+      - name: Upload verification and failure reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: yunluo-hyperos1-build1-validation
+          path: |
+            .hyperos-build/output/*.json
+            .hyperos-build/output/*.md
+            .hyperos-build/output/*.txt
+          retention-days: 30
+          if-no-files-found: warn
